@@ -67,6 +67,18 @@ class SelfAttention(nn.Module):
             v = v + self.v_bias
         return v
 
+class MuiltHead_SelfAttention(nn.Module):
+    def __init__(self, sa_num, embed_num, input_dim, output_dim, inner_dim=None, qkv_bias=True):
+        super(MuiltHead_SelfAttention, self).__init__()
+        self.msa_list = nn.ModuleList([SelfAttention(embed_num, input_dim, output_dim, inner_dim, qkv_bias) for _ in range(sa_num)])
+        self.sa_num = sa_num
+    
+    def forward(self, x):
+        y = None
+        for sa in self.msa_list:
+            y_i = sa(x)
+            y = y + y_i if y is not None else y_i
+        return y
 
 
 

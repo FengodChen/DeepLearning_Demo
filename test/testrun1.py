@@ -1,4 +1,4 @@
-from model.SelfAttention import SelfAttention
+from model.SelfAttention import SelfAttention, MuiltHead_SelfAttention
 from test.dataset import RandomDataset1
 import torch
 from torch import nn
@@ -9,11 +9,11 @@ class Net(nn.Module):
 		super(Net, self).__init__()
 		embed_num = 24
 		self.net1 = nn.Sequential(
-			SelfAttention(embed_num, 32, 24),
-			SelfAttention(embed_num, 24, 16),
-			SelfAttention(embed_num, 16, 8),
-			SelfAttention(embed_num, 8, 4),
-			SelfAttention(embed_num, 4, 1)
+			MuiltHead_SelfAttention(8, embed_num, 32, 24),
+			MuiltHead_SelfAttention(4, embed_num, 24, 16),
+			MuiltHead_SelfAttention(2, embed_num, 16, 8),
+			MuiltHead_SelfAttention(2, embed_num, 8, 4),
+			MuiltHead_SelfAttention(1, embed_num, 4, 1)
 		)
 	
 	def forward(self, x):
@@ -38,8 +38,6 @@ def train():
 
 		opt.zero_grad()
 		y_pred = net(x)
-		#print(y.shape)
-		#print(y_pred.shape)
 		loss = l(y_pred, y)
 		loss.backward()
 		opt.step()
