@@ -12,7 +12,7 @@ class SelfAttention(nn.Module):
         >>> Net = SelfAttention(embed_num, input_dim, output_dim)
         >>> y = Net(x)
 
-    Man:
+    Man::
         x.shape = (batch_size, input_dim, embed_num)
         Wq.shape = (inner_dim, input_dim)
         Wk.shape = (inner_dim, input_dim)
