@@ -6,14 +6,13 @@ import torch
 dev = torch.device("cuda:0")
 #dev = torch.device("cpu")
 dataset = cifar_dataset("datasets")
-dataloader = DataLoader(dataset, batch_size=16)
-net = ViT((32, 32), 16, 10, dev=dev, sa_num=2, msa_num=8).to(dev)
+dataloader = DataLoader(dataset, batch_size=8)
+net = ViT((32, 32), 32, 10, dev=dev, sa_num=8, msa_num=6).to(dev)
 l = torch.nn.CrossEntropyLoss()
 opt = torch.optim.SGD(net.parameters(), lr=3e-4)
 
 def train():
-	look_epoch = 10
-	opt_epoch = 16
+	opt_epoch = 256
 	running_loss = 0.0
 	for epoch, d in enumerate(dataloader):
 		(x, y) = d
