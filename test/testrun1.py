@@ -36,11 +36,11 @@ def train():
 		x = x.cuda()
 		y = y.cuda()
 
-		opt.zero_grad()
 		y_pred = net(x)
 		loss = l(y_pred, y)
 		loss.backward()
-		opt.step()
 
 		running_loss += loss.item()
+	opt.step()
+	opt.zero_grad()
 	print(f"loss = {running_loss}")
