@@ -99,6 +99,36 @@ class MuiltHead_SelfAttention(nn.Module):
         y = self.concat_matrix @ y
         return y
 
+class Transformer_Encoder(nn.Module):
+    def __init__(self, sa_num, embed_num, input_dim, output_dim, inner_dim=None, qkv_bias=True):
+        super(Transformer_Encoder, self).__init__()
+
+        self.msa = MuiltHead_SelfAttention(sa_num, embed_num, input_dim, output_dim, inner_dim, qkv_bias)
+        self.norm1 = nn.LayerNorm((output_dim, embed_num))
+
+        self.w1 = Parameter(torch.empty((output_dim, output_dim)))
+        self.b1 = Parameter(torch.empty((1, 1)))
+        self.relu = nn.ReLU(inplace=True)
+        self.w2 = Parameter(torch.empty((output_dim, output_dim)))
+        self.b2 = Parameter(torch.empty((1, 1)))
+
+        self.norm2 = nn.LayerNorm((output_dim, embed_num))
+
+        xavier_uniform_(self.w1)
+        xavier_uniform_(self.w2)
+        xavier_normal_(self.b1)
+        xavier_normal_(self.b2)
+    
+    def forward(self, x):
+        t = self.msa(x)
+        x = self.norm1(x + t)
+
+        t = self.relu((self.w1 @ x) + self.b1)
+        t = (self.w2 @ t) + self.b2
+
+        x = self.norm2(x + t)
+        return x
+
 class ViT(nn.Module):
     def __init__(self, img_size, embed_dim, classes, img_channel=3, dev=None, sa_num=8, msa_num = 16):
         super(ViT, self).__init__()
@@ -117,12 +147,9 @@ class ViT(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=(2, 2), stride=2),
         )
-        self.transformer = nn.ModuleList(
-            [MuiltHead_SelfAttention(sa_num, h*w//4, embed_dim, embed_dim) for _ in range(msa_num)]
-        )
-        self.BN = nn.ModuleList(
-            [nn.BatchNorm1d(self.embed_dim) for _ in range(msa_num)]
-        )
+        self.transformer = nn.ModuleList([
+            Transformer_Encoder(sa_num, h*w//4, embed_dim, embed_dim) for _ in range(msa_num)
+        ])
         self.relu = nn.ReLU(inplace=True)
         self.dec_matrix = Parameter(torch.empty(1, embed_dim))
         xavier_uniform_(self.dec_matrix)
@@ -137,12 +164,8 @@ class ViT(nn.Module):
         x = x + self.pos.permute(2, 0, 1)
         (bs, c, h, w) = x.shape
         x = x.view(bs, c, -1)
-        for i in range(self.msa_num):
-            t = self.transformer[i](x)
-            x = x + t
-            #x = self.BN[i](x.transpose(1, 2)).transpose(1, 2)
-            x = self.BN[i](x)
-            x = self.relu(x)
+        for sa in self.transformer:
+            x = sa(x)
         x = (self.dec_matrix @ x).view(bs, -1)
         x = self.dec(x)
         return x
