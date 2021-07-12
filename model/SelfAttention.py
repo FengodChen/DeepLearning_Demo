@@ -37,7 +37,7 @@ class SelfAttention(nn.Module):
     def __init__(self, embed_num, input_dim, output_dim, inner_dim=None, qkv_bias=True):
         super(SelfAttention, self).__init__()
         inner_dim = inner_dim if inner_dim is not None else input_dim
-        self.inner_dim = inner_dim
+        self.input_dim = input_dim
         self.qkv_bias = qkv_bias
 
         self.Wq = Parameter(torch.empty((inner_dim, input_dim)))
@@ -67,7 +67,7 @@ class SelfAttention(nn.Module):
             k = k + self.k_bias
             q = q + self.q_bias
         k = k.transpose(1, 2)
-        a = self.softmax((k @ q) / sqrt(self.inner_dim))
+        a = self.softmax((k @ q) / sqrt(self.input_dim))
         v = self.Wv @ a
         if (self.qkv_bias):
             v = v + self.v_bias
@@ -130,7 +130,7 @@ class Transformer_Encoder(nn.Module):
         return x
 
 class ViT(nn.Module):
-    def __init__(self, img_size, embed_dim, classes, img_channel=3, dev=None, sa_num=8, msa_num = 16):
+    def __init__(self, img_size, embed_dim, classes, img_channel=3, dev=None, sa_num=4, msa_num = 8):
         super(ViT, self).__init__()
 
         self.img_size = img_size
@@ -139,23 +139,23 @@ class ViT(nn.Module):
         self.msa_num = msa_num
 
         (h, w) = img_size
-        assert h%2 == 0 and w%2 == 0
+        h = h // 4
+        w = w // 4
 
-        self.pos = get_2dPE_matrix(h // 2, w // 2, embed_dim, dev)
+        self.pos = get_2dPE_matrix(h, w, embed_dim, dev)
         self.embed_enc = nn.Sequential(
-            nn.Conv2d(in_channels=img_channel, out_channels=embed_dim, kernel_size=(3, 3), padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=(2, 2), stride=2),
+            nn.Conv2d(in_channels=img_channel, out_channels=embed_dim, kernel_size=(1, 1)),
+            nn.MaxPool2d(kernel_size=(4, 4), stride=4)
         )
         self.transformer = nn.ModuleList([
-            Transformer_Encoder(sa_num, h*w//4, embed_dim, embed_dim) for _ in range(msa_num)
+            Transformer_Encoder(sa_num, h*w, embed_dim, embed_dim) for _ in range(msa_num)
         ])
         self.relu = nn.ReLU(inplace=True)
         self.dec_matrix = Parameter(torch.empty(1, embed_dim))
         xavier_uniform_(self.dec_matrix)
         self.dec = nn.Sequential(
             nn.ReLU(inplace=True),
-            nn.Linear(h * w // 4, classes),
+            nn.Linear(h * w, classes),
             nn.Softmax(dim=1)
         )
     
