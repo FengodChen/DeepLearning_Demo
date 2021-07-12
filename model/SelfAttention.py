@@ -37,7 +37,7 @@ class SelfAttention(nn.Module):
     def __init__(self, embed_num, input_dim, output_dim, inner_dim=None, qkv_bias=True):
         super(SelfAttention, self).__init__()
         inner_dim = inner_dim if inner_dim is not None else input_dim
-        self.input_dim = input_dim
+        self.inner_dim = inner_dim
         self.qkv_bias = qkv_bias
 
         self.Wq = Parameter(torch.empty((inner_dim, input_dim)))
@@ -67,7 +67,7 @@ class SelfAttention(nn.Module):
             k = k + self.k_bias
             q = q + self.q_bias
         k = k.transpose(1, 2)
-        a = self.softmax((k @ q) / sqrt(self.input_dim))
+        a = self.softmax((k @ q) / sqrt(self.inner_dim))
         v = self.Wv @ a
         if (self.qkv_bias):
             v = v + self.v_bias
