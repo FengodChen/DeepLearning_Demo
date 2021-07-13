@@ -139,13 +139,11 @@ class ViT(nn.Module):
         self.msa_num = msa_num
 
         (h, w) = img_size
-        h = h // 4
-        w = w // 4
 
         self.pos = get_2dPE_matrix(h, w, embed_dim, dev)
         self.embed_enc = nn.Sequential(
             nn.Conv2d(in_channels=img_channel, out_channels=embed_dim, kernel_size=(1, 1)),
-            nn.MaxPool2d(kernel_size=(4, 4), stride=4)
+            #nn.MaxPool2d(kernel_size=(4, 4), stride=4)
         )
         self.transformer = nn.ModuleList([
             Transformer_Encoder(sa_num, h*w, embed_dim, embed_dim) for _ in range(msa_num)
