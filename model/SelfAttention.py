@@ -5,6 +5,7 @@ from torch.nn.modules.conv import Conv2d
 from torch.nn.parameter import Parameter
 from torch.nn.init import xavier_normal_, xavier_uniform_
 from math import sqrt
+from einops.layers.torch import Rearrange
 
 from model.Pos_Encode import get_2dPE_matrix
 
@@ -130,7 +131,7 @@ class Transformer_Encoder(nn.Module):
         return x
 
 class ViT(nn.Module):
-    def __init__(self, img_size, embed_dim, classes, img_channel=3, dev=None, sa_num=4, msa_num = 8):
+    def __init__(self, img_size, patch_size, embed_dim, classes, img_channel=3, dev=None, sa_num=4, msa_num = 8):
         super(ViT, self).__init__()
 
         self.img_size = img_size
@@ -138,30 +139,35 @@ class ViT(nn.Module):
         self.img_channel = img_channel
         self.msa_num = msa_num
 
-        (h, w) = img_size
+        (i_h, i_w) = img_size
+        (p_h, p_w) = patch_size
+        assert i_h % p_h == 0 and i_w % p_w == 0
+        (p_h_num, p_w_num) = (i_h // p_h, i_w // p_w)
 
-        self.pos = get_2dPE_matrix(h, w, embed_dim, dev)
-        self.embed_enc = nn.Sequential(
-            nn.Conv2d(in_channels=img_channel, out_channels=embed_dim, kernel_size=(1, 1)),
-            #nn.MaxPool2d(kernel_size=(4, 4), stride=4)
-        )
+        self.pos = get_2dPE_matrix(p_h_num, p_w_num, embed_dim, dev)
+        print(self.pos.shape)
+        self.embed_enc = Rearrange('b c (p_h_num p1) (p_w_num p2) -> b (p1 p2 c) (p_h_num p_w_num)', p1 = p_h, p2 = p_w)
+        self.enc_matrix = Parameter(torch.empty(embed_dim, p_h*p_w*img_channel))
         self.transformer = nn.ModuleList([
-            Transformer_Encoder(sa_num, h*w, embed_dim, embed_dim) for _ in range(msa_num)
+            Transformer_Encoder(sa_num, p_h_num*p_w_num, embed_dim, embed_dim) for _ in range(msa_num)
         ])
         self.relu = nn.ReLU(inplace=True)
         self.dec_matrix = Parameter(torch.empty(1, embed_dim))
-        xavier_uniform_(self.dec_matrix)
         self.dec = nn.Sequential(
             nn.ReLU(inplace=True),
-            nn.Linear(h * w, classes),
+            nn.Linear(p_h_num * p_w_num, classes),
             nn.Softmax(dim=1)
         )
+
+        xavier_uniform_(self.enc_matrix)
+        xavier_uniform_(self.dec_matrix)
     
     def forward(self, x):
         x = self.embed_enc(x)
-        x = x + self.pos.permute(2, 0, 1)
-        (bs, c, h, w) = x.shape
-        x = x.view(bs, c, -1)
+        x = self.enc_matrix @ x
+        x = x + self.pos
+        (bs, embed_dim, n) = x.shape
+        #x = x.view(bs, c, -1)
         for sa in self.transformer:
             x = sa(x)
         x = (self.dec_matrix @ x).view(bs, -1)

@@ -1,5 +1,6 @@
 import torch
 from math import sin, cos
+from einops import rearrange
 
 def get_2dPE_matrix(h_dim, w_dim, channel, dev=None):
 	''' Get 2D Positional Encoding Matrix. '''
@@ -17,5 +18,6 @@ def get_2dPE_matrix(h_dim, w_dim, channel, dev=None):
 				hw_PE.append(sin(w_pos/(10000**(2*i/d))))
 				hw_PE.append(cos(w_pos/(10000**(2*i/d))))
 			PE[h_pos, w_pos] = torch.tensor(hw_PE)
+	PE = rearrange(PE, 'h w embed_dim -> embed_dim (h w)')
 	return PE
 			
