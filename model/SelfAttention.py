@@ -62,6 +62,11 @@ class Transformer_Encoder(nn.Module):
         super(Transformer_Encoder, self).__init__()
 
         self.msa = MuiltHead_SelfAttention(sa_num, embed_num, input_dim, output_dim, inner_dim, qkv_bias)
+        self.net = nn.Sequential(
+            nn.Linear(output_dim, 16),
+            nn.GELU(),
+            nn.Linear(16, output_dim)
+        )
         self.norm1 = nn.LayerNorm((embed_num, output_dim))
 
         self.w1 = nn.Linear(output_dim, output_dim)
@@ -71,6 +76,9 @@ class Transformer_Encoder(nn.Module):
         self.norm2 = nn.LayerNorm((embed_num, output_dim))
 
     def forward(self, x):
+        x = self.norm1(self.msa(x)) + x
+        x = self.norm2(self.net(x)) + x
+        '''
         t = self.msa(x)
         x = self.norm1(x + t)
 
@@ -78,6 +86,7 @@ class Transformer_Encoder(nn.Module):
         t = self.w2(t)
 
         x = self.norm2(x + t)
+        '''
         return x
 
 class ViT(nn.Module):
@@ -93,19 +102,21 @@ class ViT(nn.Module):
         (p_h, p_w) = patch_size
         assert i_h % p_h == 0 and i_w % p_w == 0
         (p_h_num, p_w_num) = (i_h // p_h, i_w // p_w)
+        p_num = p_h_num * p_w_num
 
-        self.pos = get_2dPE_matrix(p_h_num, p_w_num, embed_dim, dev)
+        #self.pos = get_2dPE_matrix(p_h_num, p_w_num, embed_dim, dev)
+        self.pos = nn.Parameter(torch.randn(1, p_h_num*p_w_num, embed_dim))
         self.embed_enc = Rearrange('b c (p_h_num p1) (p_w_num p2) -> b (p_h_num p_w_num) (p1 p2 c)', p1 = p_h, p2 = p_w)
         self.enc_transform = nn.Linear(p_h*p_w*img_channel, embed_dim)
         self.transformer = nn.ModuleList([
-            Transformer_Encoder(sa_num, p_h_num*p_w_num, embed_dim, embed_dim) for _ in range(msa_num)
+            Transformer_Encoder(sa_num, p_num, embed_dim, embed_dim) for _ in range(msa_num)
         ])
-        self.relu = nn.ReLU(inplace=True)
-        self.dec_transform = nn.Linear(embed_dim, 1)
+        self.dec_transform = nn.Linear(p_num, 1)
         self.dec = nn.Sequential(
-            nn.ReLU(inplace=True),
-            nn.Linear(p_h_num * p_w_num, classes),
-            nn.Softmax(dim=1)
+            #nn.ReLU(inplace=True), 
+            nn.LayerNorm(embed_dim),
+            nn.Linear(embed_dim, classes),
+            #nn.Softmax(dim=1)
         )
 
     def forward(self, x):
@@ -115,7 +126,7 @@ class ViT(nn.Module):
         (bs, embed_dim, n) = x.shape
         for sa in self.transformer:
             x = sa(x)
-        x = (self.dec_transform(x)).view(bs, -1)
+        x = (self.dec_transform(x.transpose(1, 2))).view(bs, self.embed_dim)
         x = self.dec(x)
         return x
 
