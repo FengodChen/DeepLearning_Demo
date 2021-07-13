@@ -5,9 +5,9 @@ import torch
 
 dev = torch.device("cuda:0")
 #dev = torch.device("cpu")
-dataset = mnist_dataset("datasets", True)
-dataloader = DataLoader(dataset, batch_size=8)
-net = ViT((28, 28), (1, 1), 16, 10, img_channel=1, dev=dev, sa_num=16, msa_num=6).to(dev)
+dataset = cifar_dataset("datasets", True)
+dataloader = DataLoader(dataset, batch_size=16)
+net = ViT((32, 32), (2, 2), 16, 10, img_channel=3, dev=dev, sa_num=16, msa_num=6).to(dev)
 l = torch.nn.CrossEntropyLoss()
 opt = torch.optim.SGD(net.parameters(), lr=3e-4, momentum=0.9)
 
