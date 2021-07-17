@@ -12,6 +12,7 @@ l = torch.nn.CrossEntropyLoss()
 opt = torch.optim.Adam(net.parameters(), lr=3e-4)
 
 def train():
+	net.train()
 	opt_epoch = 32
 	running_loss = 0.0
 	for epoch, d in enumerate(dataloader):
@@ -30,3 +31,23 @@ def train():
 			running_loss = 0.0
 
 		running_loss += loss.item()
+
+def eval(model_path, batch_size=2):
+	dataset = cifar_dataset("datasets", download=True, train=False)
+	dataloader = DataLoader(dataset, batch_size=batch_size)
+	net.load_state_dict(torch.load(model_path))
+	net.eval()
+	trueAns_num = 0
+	for epoch, d in enumerate(dataloader):
+		(x, y) = d
+		x = x.to(dev)
+		y = y.to(dev)
+		y_pred = net(x)
+		y_pred_fix = torch.argmax(y_pred, dim=1)
+		compare_matrix = y_pred_fix - y
+		trueAns_num += len(compare_matrix[compare_matrix == 0])
+		print(f"{(epoch+1)*batch_size}/{len(dataset)}")
+	d = f"True Ans: {trueAns_num}, Total Ans: {len(dataset)}, Rate: {trueAns_num / len(dataset)}\n"
+	print(d)
+	with open("save/log/vit_bs-32_epoch-10.txt", "a") as f:
+		f.write(d)

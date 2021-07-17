@@ -90,8 +90,10 @@ class ViT(nn.Module):
         p_num = p_h_num * p_w_num
 
         self.pos =  nn.Parameter(torch.randn(1, p_h_num*p_w_num, embed_dim)) if pos_learnable else get_2dPE_matrix(p_h_num, p_w_num, embed_dim, dev)
-        self.embed_enc = Rearrange('b c (p_h_num p1) (p_w_num p2) -> b (p_h_num p_w_num) (p1 p2 c)', p1 = p_h, p2 = p_w)
-        self.enc_transform = nn.Linear(p_h*p_w*img_channel, embed_dim)
+        self.embed_enc = nn.Sequential(
+            Rearrange('b c (p_h_num p1) (p_w_num p2) -> b (p_h_num p_w_num) (p1 p2 c)', p1 = p_h, p2 = p_w),
+            nn.Linear(p_h*p_w*img_channel, embed_dim)
+        )
         self.transformer = nn.ModuleList([
             Transformer_Encoder(sa_num, p_num, embed_dim, embed_dim) for _ in range(msa_num)
         ])
@@ -103,12 +105,11 @@ class ViT(nn.Module):
 
     def forward(self, x):
         x = self.embed_enc(x)
-        x = self.enc_transform(x)
         x = x + self.pos
-        (bs, embed_dim, n) = x.shape
+        (bs, embed_num, embed_dim) = x.shape
         for sa in self.transformer:
             x = sa(x)
-        x = (self.dec_transform(x.transpose(1, 2))).view(bs, self.embed_dim)
+        x = (self.dec_transform(x.transpose(1, 2))).view(bs, embed_dim)
         x = self.dec(x)
         return x
 
