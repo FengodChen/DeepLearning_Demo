@@ -24,10 +24,6 @@ class Logger_Kernel():
 	def update_history(self, timestamp):
 		self.kernel_history.append(timestamp)
 
-	def save(self, filename):
-		with open(filename, 'wb') as f:
-			pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
-
 	@staticmethod
 	def load(filename):
 		with open(filename, 'rb') as f:
@@ -35,7 +31,8 @@ class Logger_Kernel():
 
 	@staticmethod
 	def save(kernel_logger, filename):
-		kernel_logger.save(filename)
+		with open(filename, 'wb') as f:
+			pickle.dump(kernel_logger, f, pickle.HIGHEST_PROTOCOL)
 	
 class CSV_Operator():
 	def __init__(self) -> None:
@@ -50,6 +47,7 @@ class CSV_Operator():
 	def save(self, file_path):
 		with open(file_path, "a", newline='') as f:
 			csv_writter = csv.writer(f)
+			#for d in self.buffer:
 			csv_writter.writerows(self.buffer)
 		self.clear()
 	
@@ -83,13 +81,16 @@ class ViT_Logger():
 			self.kernel = Logger_Kernel()
 	
 	def update_loss(self, loss):
-		self.loss_logger.add(loss)
+		self.loss_logger.add([loss])
 	
 	def update_avg_loss(self, avg_loss):
 		self.kernel.update_extra_info(avg_loss=avg_loss)
 	
 	def add_epoch(self, epochs=1):
-		kernel_epoch = self.kernel.extra_info['epoch']
+		if 'epoch' in self.kernel.extra_info:
+			kernel_epoch = self.kernel.extra_info['epoch']
+		else:
+			kernel_epoch = 0
 		self.kernel.update_extra_info(epoch= kernel_epoch + epochs)
 
 	def save(self):
@@ -109,4 +110,4 @@ class ViT_Logger():
 
 		self.kernel.update_logfile_info(loss=loss_filename, net=net_filename)
 		self.kernel.update_history(timestamp)
-		self.kernel.save(kernel_filepath)
+		Logger_Kernel.save(self.kernel, kernel_filepath)
