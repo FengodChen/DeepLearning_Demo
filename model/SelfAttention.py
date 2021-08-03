@@ -40,7 +40,7 @@ class MuiltHead_SelfAttention(nn.Module):
         self.Wq = nn.Linear(input_dim, inner_dim*sa_num, bias=qkv_bias)
         self.Wk = nn.Linear(input_dim, inner_dim*sa_num, bias=qkv_bias)
         self.Wv = nn.Linear(embed_num*sa_num, output_dim*sa_num, bias=qkv_bias)
-        self.div_kq = Rearrange('b embed_num sa_num input_dim -> b sa_num embed_num input_dim', sa_num=sa_num)
+        self.div_kq = Rearrange('b embed_num (sa_num input_dim) -> b sa_num embed_num input_dim', sa_num=sa_num)
         self.combine_a = Rearrange('b sa_num embed_num_h embed_num_w -> b embed_num_h (sa_num embed_num_w)', sa_num=sa_num)
         self.softmax = nn.Softmax(dim=1)
         self.concat = nn.Linear(output_dim*sa_num, output_dim)
@@ -50,7 +50,7 @@ class MuiltHead_SelfAttention(nn.Module):
         (b, _, __) = x.shape
         k = self.div_kq(self.Wk(x))
         q = self.div_kq(self.Wq(x))
-        q = q.transpose(1, 2)
+        q = q.transpose(2, 3)
         a = self.softmax((k @ q) / sqrt(self.inner_dim))
         v = self.Wv(self.combine_a(a))
         y = self.concat(v)
@@ -91,7 +91,7 @@ class ViT(nn.Module):
 
         self.pos =  nn.Parameter(torch.randn(1, p_h_num*p_w_num, embed_dim)) if pos_learnable else get_2dPE_matrix(p_h_num, p_w_num, embed_dim, dev)
         self.embed_enc = nn.Sequential(
-            Rearrange('b c (p_h_num p1) (p_w_num p2) -> b (p_h_num p_w_num) (p1 p2 c)', p1 = p_h, p2 = p_w),
+            Rearrange('b c (p_h_num p_h) (p_w_num p_w) -> b (p_h_num p_w_num) (p_h p_w c)', p_h = p_h, p_w = p_w),
             nn.Linear(p_h*p_w*img_channel, embed_dim)
         )
         self.transformer = nn.ModuleList([
