@@ -40,8 +40,8 @@ class MuiltHead_SelfAttention(nn.Module):
         self.Wq = nn.Linear(input_dim, inner_dim*sa_num, bias=qkv_bias)
         self.Wk = nn.Linear(input_dim, inner_dim*sa_num, bias=qkv_bias)
         self.Wv = nn.Linear(embed_num*sa_num, output_dim*sa_num, bias=qkv_bias)
-        self.div_kq = Rearrange('b embed_num (sa_num input_dim) -> (b sa_num) embed_num input_dim', sa_num=sa_num)
-        self.combine_a = Rearrange('(b sa_num) embed_num_h embed_num_w -> b embed_num_h (sa_num embed_num_w)', sa_num=sa_num)
+        self.div_kq = Rearrange('b embed_num sa_num input_dim -> b sa_num embed_num input_dim', sa_num=sa_num)
+        self.combine_a = Rearrange('b sa_num embed_num_h embed_num_w -> b embed_num_h (sa_num embed_num_w)', sa_num=sa_num)
         self.softmax = nn.Softmax(dim=1)
         self.concat = nn.Linear(output_dim*sa_num, output_dim)
 

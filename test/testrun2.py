@@ -32,7 +32,7 @@ def train():
 
 		running_loss += loss.item()
 
-def eval(model_path, batch_size=2):
+def eval(model_path, batch_size=2, log_path=None):
 	dataset = cifar_dataset("datasets", download=True, train=False)
 	dataloader = DataLoader(dataset, batch_size=batch_size)
 	net.load_state_dict(torch.load(model_path))
@@ -49,5 +49,6 @@ def eval(model_path, batch_size=2):
 		print(f"{(epoch+1)*batch_size}/{len(dataset)}")
 	d = f"True Ans: {trueAns_num}, Total Ans: {len(dataset)}, Rate: {trueAns_num / len(dataset)}\n"
 	print(d)
-	with open("save/log/vit_bs-32_epoch-10.txt", "a") as f:
-		f.write(d)
+	if (log_path is not None):
+		with open(log_path, "a") as f:
+			f.write(d)
