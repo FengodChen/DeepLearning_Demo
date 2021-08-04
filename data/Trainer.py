@@ -15,7 +15,7 @@ class Trainer():
 	
 	def train(self, epochs):
 		self.net.train()
-		for epoch in range(1, epochs + 1):
+		for epoch in range(self.logger.get_epoch() + 1, epochs + 1):
 			pbar = tqdm(range(len(self.dataloader.dataset)), leave=True)
 			total_loss = 0.0
 			for (x, y) in self.dataloader:

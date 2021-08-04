@@ -79,6 +79,7 @@ class ViT_Logger():
 			self.net_storager.load(net, net_path)
 		else:
 			self.kernel = Logger_Kernel()
+			self.kernel.update_extra_info(epoch=0, avg_loss=-1.0)
 	
 	def update_loss(self, loss):
 		self.loss_logger.add([loss])
@@ -92,13 +93,19 @@ class ViT_Logger():
 		else:
 			kernel_epoch = 0
 		self.kernel.update_extra_info(epoch= kernel_epoch + epochs)
+	
+	def get_epoch(self):
+		return self.kernel.extra_info["epoch"]
+	
+	def get_avg_loss(self):
+		return self.kernel.extra_info["avg_loss"]
 
 	def save(self):
 		timestamp = time.strftime("%Y%m%d%H%M%S")
 		avg_loss = self.kernel.extra_info['avg_loss']
 		epoch = self.kernel.extra_info['epoch']
-		loss_filename = f"loss-{avg_loss}_epoch-{epoch}_timestamp-{timestamp}.csv"
-		net_filename = f"loss-{avg_loss}_epoch-{epoch}_timestamp-{timestamp}.pth"
+		loss_filename = f"loss_log_{timestamp}_loss-{avg_loss}_epoch-{epoch}.csv"
+		net_filename = f"net_{timestamp}_loss-{avg_loss}_epoch-{epoch}.pth"
 		kernel_filename = f"kernel_{timestamp}.pkl"
 
 		loss_filepath = f"{self.dir_path}/{loss_filename}"
