@@ -6,13 +6,22 @@ from data.Trainer import Trainer
 from data.Logger import ViT_Logger
 import torch
 
+def compare_func(y_pred, y):
+	y_pred_ = torch.argmax(y_pred, dim=1).view(-1)
+	y_ = y.view(-1)
+	true_ans = torch.where((y_-y_pred_) == 0)
+	acc = len(true_ans) / len(y_)
+	return acc
+
 dev = torch.device("cuda:0")
 #dev = torch.device("cpu")
-dataset = cifar_dataset("datasets", True)
-dataloader = DataLoader(dataset, batch_size=2, shuffle=True)
+dataset_train = cifar_dataset("datasets", True)
+dataloader_train = DataLoader(dataset_train, batch_size=2, shuffle=True)
+dataset_test = cifar_dataset("datasets", True, train=False)
+dataloader_test = DataLoader(dataset_test, batch_size=2, shuffle=True)
 net = ViT((32, 32), (2, 2), 16, 10, img_channel=3, dev=dev, sa_num=16, msa_num=6).to(dev)
 loss = torch.nn.CrossEntropyLoss()
 opt = torch.optim.Adam(net.parameters(), lr=3e-4)
-logger = ViT_Logger("save/test1", net)
+logger = ViT_Logger("save/ViT_Without_Test", net, 20210805180806)
 
-trainer = Trainer(net, dataloader, loss, opt, dev, logger, 1)
+trainer = Trainer(net, loss, opt, dev, logger, 1)

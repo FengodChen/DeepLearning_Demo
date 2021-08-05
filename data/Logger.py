@@ -64,6 +64,9 @@ class Net_Storager():
 
 class ViT_Logger():
 	def __init__(self, dir_path, net, timestamp=None) -> None:
+		'''
+		If timestamp is not, create new logger kernel, else load kernel and data
+		'''
 		self.loss_logger = CSV_Operator()
 		self.net_storager = Net_Storager()
 		self.dir_path = dir_path
