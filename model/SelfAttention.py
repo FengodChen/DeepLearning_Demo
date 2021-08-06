@@ -7,73 +7,50 @@ from copy import copy
 from model.Pos_Encode import get_2dPE_matrix
 
 class MuiltHead_SelfAttention(nn.Module):
-    '''
-    See `Attention Is All You Need <https://arxiv.org/abs/1706.03762>`
-
-    Example::
-        >>> x = torch.rand(batch_size, input_dim, embed_num)
-        >>> Net = MuiltHead_SelfAttention(sa_num, embed_num, input_dim, output_dim)
-        >>> y = Net(x)
-
-    Man::
-        x.shape = (batch_size, embed_num, input_dim)
-        Wq.shape = (input_dim, inner_dim)
-        Wk.shape = (input_dim, inner_dim)
-        Wv.shape = (embed_num, outut_dim)
-        y.shape = (batch_size, embed_num, output_dim)
-
-    Algorithm::
-        Input: x
-
-        k = (x @ Wk) + bias_k 
-        q = (x @ Wq) + bias_q
-        a = softmax((k @ q.tranpose) / sqrt(inner_dim))
-        y = (x @ Wv) + bias_v
-
-        Output: y
-    '''
-    def __init__(self, sa_num, embed_num, input_dim, output_dim, inner_dim=None, qkv_bias=True):
+    def __init__(self, heads_num, input_dim, output_dim=None, inner_dim=None, qkv_bias=True, dropout=0.0, scale=None):
         super(MuiltHead_SelfAttention, self).__init__()
         inner_dim = inner_dim if inner_dim is not None else input_dim
+        output_dim = output_dim if output_dim is not None else input_dim
         self.inner_dim = inner_dim
-        self.sa_num = sa_num
+        self.heads_num = heads_num
         
-        self.Wq = nn.Linear(input_dim, inner_dim*sa_num, bias=qkv_bias)
-        self.Wk = nn.Linear(input_dim, inner_dim*sa_num, bias=qkv_bias)
-        self.Wv = nn.Linear(embed_num*sa_num, output_dim*sa_num, bias=qkv_bias)
-        self.div_kq = Rearrange('b embed_num (sa_num input_dim) -> b sa_num embed_num input_dim', sa_num=sa_num)
-        self.combine_a = Rearrange('b sa_num embed_num_h embed_num_w -> b embed_num_h (sa_num embed_num_w)', sa_num=sa_num)
+        self.W_qkv = nn.Linear(input_dim, inner_dim*heads_num*3, bias=qkv_bias)
+        self.div_qkv = Rearrange('b embed_num (qkv heads_num input_dim) -> qkv b heads_num embed_num input_dim', heads_num=heads_num, qkv=3)
+        self.scale = scale if scale is not None else inner_dim ** -0.5
         self.softmax = nn.Softmax(dim=1)
-        self.concat = nn.Linear(output_dim*sa_num, output_dim)
+        self.combine = Rearrange('b heads_num embed_num inner_dim -> b embed_num (heads_num inner_dim)', heads_num=heads_num)
+        self.out = nn.Sequential(
+            nn.Linear(inner_dim*heads_num, output_dim), 
+            nn.Dropout(dropout)
+        )
 
-    
     def forward(self, x):
-        (b, _, __) = x.shape
-        k = self.div_kq(self.Wk(x))
-        q = self.div_kq(self.Wq(x))
-        q = q.transpose(2, 3)
-        a = self.softmax((k @ q) / sqrt(self.inner_dim))
-        v = self.Wv(self.combine_a(a))
-        y = self.concat(v)
+        (q, k, v) = self.div_qkv(self.W_qkv(x))
+
+        a = einsum('bnid, bnjd -> bnij', k, q) * self.scale
+        a = self.softmax(a)
+
+        y = einsum('bnij,bnjk -> bnik', a, v)
+        y = self.out(self.combine(y))
+
         return y
 
-class MuiltHead_SelfAttention_Test(nn.Module):
-    def __init__(self, sa_num, embed_num, input_dim, output_dim, inner_dim=None, qkv_bias=True):
-        super(MuiltHead_SelfAttention_Test, self).__init__()
+class MuiltHead_SelfAttention_Zoom(nn.Module):
+    def __init__(self, heads_num, input_dim, output_dim=None, inner_dim=None, qkv_bias=True):
+        super(MuiltHead_SelfAttention_Zoom, self).__init__()
         inner_dim = inner_dim if inner_dim is not None else input_dim
+        output_dim = output_dim if output_dim is not None else input_dim
         self.inner_dim = inner_dim
-        self.sa_num = sa_num
+        self.heads_num = heads_num
         
-        self.Wq = nn.Linear(input_dim, inner_dim*sa_num, bias=qkv_bias)
-        self.Wk = nn.Linear(input_dim, inner_dim*sa_num, bias=qkv_bias)
-        #self.Wv = nn.Linear(embed_num*sa_num, output_dim*sa_num, bias=qkv_bias)
-        self.Wv = nn.Linear(input_dim, output_dim*sa_num, bias=qkv_bias)
-        self.div_kq = Rearrange('b embed_num (sa_num input_dim) -> b sa_num embed_num input_dim', sa_num=sa_num)
-        self.div_v = Rearrange('b embed_num (sa_num output_dim) -> b sa_num embed_num output_dim', sa_num=sa_num)
-        #self.combine_a = Rearrange('b sa_num embed_num_h embed_num_w -> b embed_num_h (sa_num embed_num_w)', sa_num=sa_num)
-        self.combine_y = Rearrange('b sa_num embed_num output_dim -> b embed_num (sa_num output_dim)', sa_num=sa_num)
+        self.Wq = nn.Linear(input_dim, inner_dim*heads_num, bias=qkv_bias)
+        self.Wk = nn.Linear(input_dim, inner_dim*heads_num, bias=qkv_bias)
+        self.Wv = nn.Linear(input_dim, output_dim*heads_num, bias=qkv_bias)
+        self.div_kq = Rearrange('b embed_num (heads_num input_dim) -> b heads_num embed_num input_dim', heads_num=heads_num)
+        self.div_v = Rearrange('b embed_num (heads_num output_dim) -> b heads_num embed_num output_dim', heads_num=heads_num)
+        self.combine_y = Rearrange('b heads_num embed_num output_dim -> b embed_num (heads_num output_dim)', heads_num=heads_num)
         self.softmax = nn.Softmax(dim=1)
-        self.concat = nn.Linear(output_dim*sa_num, output_dim)
+        self.concat = nn.Linear(output_dim*heads_num, output_dim)
 
     
     def forward(self, x):
@@ -91,10 +68,10 @@ class MuiltHead_SelfAttention_Test(nn.Module):
         return y
 
 class Transformer_Encoder(nn.Module):
-    def __init__(self, sa_num, embed_num, input_dim, output_dim, inner_dim=None, qkv_bias=True):
+    def __init__(self, heads_num, embed_num, input_dim, output_dim, inner_dim=None, qkv_bias=True):
         super(Transformer_Encoder, self).__init__()
 
-        self.msa = MuiltHead_SelfAttention(sa_num, embed_num, input_dim, output_dim, inner_dim, qkv_bias)
+        self.msa = MuiltHead_SelfAttention(heads_num, input_dim, inner_dim, qkv_bias)
         self.net = nn.Sequential(
             nn.Linear(output_dim, 16),
             nn.GELU(),
@@ -109,7 +86,7 @@ class Transformer_Encoder(nn.Module):
         return x
 
 class ViT(nn.Module):
-    def __init__(self, img_size, patch_size, embed_dim, classes, img_channel=3, dev=None, sa_num=4, msa_num = 8, pos_learnable=False):
+    def __init__(self, img_size, patch_size, embed_dim, classes, img_channel=3, dev=None, heads_num=4, msa_num = 8, pos_learnable=False):
         super(ViT, self).__init__()
 
         self.img_size = img_size
@@ -129,7 +106,7 @@ class ViT(nn.Module):
             nn.Linear(p_h*p_w*img_channel, embed_dim)
         )
         self.transformer = nn.ModuleList([
-            Transformer_Encoder(sa_num, p_num, embed_dim, embed_dim) for _ in range(msa_num)
+            Transformer_Encoder(heads_num, p_num, embed_dim, embed_dim) for _ in range(msa_num)
         ])
         self.dec_transform = nn.Linear(p_num, 1)
         self.dec = nn.Sequential(
