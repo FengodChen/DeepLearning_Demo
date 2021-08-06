@@ -4,6 +4,7 @@ import torch
 from copy import copy
 import os
 import time
+import glob
 
 class Logger_Kernel():
 	def __init__(self) -> None:
@@ -63,10 +64,13 @@ class Net_Storager():
 		net.load_state_dict(state_dict)
 
 class ViT_Logger():
-	def __init__(self, dir_path, net, timestamp=None) -> None:
+	def __init__(self, dir_path, net, timestamp=None, load_newest=False) -> None:
 		'''
 		If timestamp is not, create new logger kernel, else load kernel and data
 		'''
+
+		assert not (timestamp is not None and load_newest)
+
 		self.loss_logger = CSV_Operator()
 		self.net_storager = Net_Storager()
 		self.dir_path = dir_path
@@ -76,13 +80,37 @@ class ViT_Logger():
 			os.makedirs(self.dir_path)
 
 		kernel_path = f"{self.dir_path}/kernel_{timestamp}.pkl"
-		if os.path.exists(kernel_path):
+		if timestamp is not None and os.path.exists(kernel_path):
 			self.kernel = Logger_Kernel.load(kernel_path)
 			net_path = f"{self.dir_path}/{self.kernel.logfile_info['net']}"
 			self.net_storager.load(net, net_path)
+			print(f'Loaded Net, timestamp: {timestamp}')
+			self.print_info()
+			print(f'>>>               END INFO                <<<')
+		elif load_newest:
+			net_filePathList = glob.glob(f"{self.dir_path}/kernel_*.pkl")
+			max_timestamp = 0
+			for net_filePath in net_filePathList:
+				file_timestamp = int(net_filePath[-18: -4])
+				if (file_timestamp > max_timestamp):
+					max_timestamp = file_timestamp
+			kernel_path = f"{self.dir_path}/kernel_{max_timestamp}.pkl"
+			self.kernel = Logger_Kernel.load(kernel_path)
+			net_path = f"{self.dir_path}/{self.kernel.logfile_info['net']}"
+			self.net_storager.load(net, net_path)
+			print(f'>>> Loaded Net, timestamp: {max_timestamp} <<<')
+			self.print_info()
+			print(f'>>>>>>>>>>>>>>>>> END INFO <<<<<<<<<<<<<<<<<<')
 		else:
+			print(">>> New Logger Kernel <<<")
+			print(">>>>>>> END INFO <<<<<<<<")
 			self.kernel = Logger_Kernel()
 			self.kernel.update_extra_info(epoch=0, avg_loss=-1.0)
+	
+	def print_info(self):
+		epoch = self.kernel.extra_info["epoch"]
+		epoch_avg_loss = self.kernel.extra_info["avg_loss"]
+		print(f'epoch: {epoch}, epoch_avg_loss: {epoch_avg_loss}')
 	
 	def update_loss(self, loss):
 		self.loss_logger.add([loss])
