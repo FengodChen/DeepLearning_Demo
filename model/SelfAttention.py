@@ -7,7 +7,7 @@ from copy import copy
 from model.Pos_Encode import get_2dPE_matrix
 
 class MuiltHead_SelfAttention(nn.Module):
-    def __init__(self, heads_num, input_dim, output_dim=None, inner_dim=None, qkv_bias=True, dropout=0.0, scale=None):
+    def __init__(self, heads_num, input_dim, output_dim=None, inner_dim=None, qkv_bias=True, dropout=0.0):
         super(MuiltHead_SelfAttention, self).__init__()
         inner_dim = inner_dim if inner_dim is not None else input_dim
         output_dim = output_dim if output_dim is not None else input_dim
@@ -16,8 +16,7 @@ class MuiltHead_SelfAttention(nn.Module):
         
         self.W_qkv = nn.Linear(input_dim, inner_dim*heads_num*3, bias=qkv_bias)
         self.div_qkv = Rearrange('b embed_num (qkv heads_num input_dim) -> qkv b heads_num embed_num input_dim', heads_num=heads_num, qkv=3)
-        self.scale = scale if scale is not None else inner_dim ** -0.5
-        self.softmax = nn.Softmax(dim=1)
+        self.softmax = nn.Softmax(dim=-1)
         self.combine = Rearrange('b heads_num embed_num inner_dim -> b embed_num (heads_num inner_dim)', heads_num=heads_num)
         self.out = nn.Sequential(
             nn.Linear(inner_dim*heads_num, output_dim), 
@@ -27,7 +26,7 @@ class MuiltHead_SelfAttention(nn.Module):
     def forward(self, x):
         (q, k, v) = self.div_qkv(self.W_qkv(x))
 
-        a = einsum('bnid, bnjd -> bnij', k, q) * self.scale
+        a = einsum('bnid, bnjd -> bnij', k, q) / sqrt(self.inner_dim)
         a = self.softmax(a)
 
         y = einsum('bnij,bnjk -> bnik', a, v)
@@ -35,9 +34,9 @@ class MuiltHead_SelfAttention(nn.Module):
 
         return y
 
-class MuiltHead_SelfAttention_Zoom(nn.Module):
+class MuiltHead_SelfAttention_Test(nn.Module):
     def __init__(self, heads_num, input_dim, output_dim=None, inner_dim=None, qkv_bias=True):
-        super(MuiltHead_SelfAttention_Zoom, self).__init__()
+        super(MuiltHead_SelfAttention_Test, self).__init__()
         inner_dim = inner_dim if inner_dim is not None else input_dim
         output_dim = output_dim if output_dim is not None else input_dim
         self.inner_dim = inner_dim
