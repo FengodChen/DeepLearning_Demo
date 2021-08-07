@@ -67,25 +67,39 @@ class MuiltHead_SelfAttention_Test(nn.Module):
         return y
 
 class Transformer_Encoder(nn.Module):
-    def __init__(self, heads_num, embed_num, input_dim, output_dim, inner_dim=None, qkv_bias=True):
+    def __init__(self, heads_num, embed_num, input_dim, output_dim=None, msa_inner_dim=None, mlp_inner_dim=None, qkv_bias=True, msa_dropout=0.0, mlp_dropout=0.0):
         super(Transformer_Encoder, self).__init__()
 
-        self.msa = MuiltHead_SelfAttention(heads_num, input_dim, inner_dim, qkv_bias)
-        self.net = nn.Sequential(
-            nn.Linear(output_dim, 16),
+        output_dim = output_dim if output_dim is not None else input_dim
+        mlp_inner_dim = mlp_inner_dim if mlp_inner_dim is not None else input_dim
+        msa_inner_dim = msa_inner_dim if msa_inner_dim is not None else input_dim
+        
+
+        self.msa = MuiltHead_SelfAttention(
+            heads_num = heads_num,
+            input_dim = input_dim,
+            output_dim = output_dim,
+            inner_dim = msa_inner_dim,
+            qkv_bias = qkv_bias,
+            dropout = msa_dropout
+        )
+        self.mlp = nn.Sequential(
+            nn.Linear(output_dim, mlp_inner_dim),
             nn.GELU(),
-            nn.Linear(16, output_dim)
+            nn.Dropout(mlp_dropout),
+            nn.Linear(mlp_inner_dim, output_dim),
+            nn.Dropout(mlp_dropout)
         )
         self.norm1 = nn.LayerNorm((embed_num, output_dim))
         self.norm2 = nn.LayerNorm((embed_num, output_dim))
 
     def forward(self, x):
         x = self.norm1(self.msa(x)) + x
-        x = self.norm2(self.net(x)) + x
+        x = self.norm2(self.mlp(x)) + x
         return x
 
 class ViT(nn.Module):
-    def __init__(self, img_size, patch_size, embed_dim, classes, img_channel=3, dev=None, heads_num=4, msa_num = 8, pos_learnable=False):
+    def __init__(self, img_size, patch_size, embed_dim, classes, heads_num, msa_num, msa_inner_dim, mlp_inner_dim, msa_dropout=0.0, mlp_dropout=0.0, img_channel=3, dev=None, pos_learnable=False, qkv_bias=True):
         super(ViT, self).__init__()
 
         self.img_size = img_size
@@ -105,7 +119,17 @@ class ViT(nn.Module):
             nn.Linear(p_h*p_w*img_channel, embed_dim)
         )
         self.transformer = nn.ModuleList([
-            Transformer_Encoder(heads_num, p_num, embed_dim, embed_dim) for _ in range(msa_num)
+            Transformer_Encoder(
+                heads_num = heads_num,
+                embed_num = p_num,
+                input_dim = embed_dim,
+                output_dim = embed_dim,
+                msa_inner_dim = msa_inner_dim,
+                mlp_inner_dim = mlp_inner_dim,
+                qkv_bias = qkv_bias,
+                msa_dropout = msa_dropout,
+                mlp_dropout = mlp_dropout
+            ) for _ in range(msa_num)
         ])
         self.dec_transform = nn.Linear(p_num, 1)
         self.dec = nn.Sequential(
