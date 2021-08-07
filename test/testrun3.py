@@ -1,21 +1,16 @@
 from torch.utils.data.dataloader import DataLoader
 from data.Datasets import cifar_dataset, mnist_dataset
 from model.SelfAttention import ViT
+from utils.Compare_Func import cifar10_compare_func as compare_func
+from utils.Seed import seed_everything
 #from model.SelfAttention_Test import ViT
 from data.Trainer import Trainer
 from data.Logger import ViT_Logger
 import torch
 
-def compare_func(y_pred, y):
-	y_pred_ = torch.argmax(y_pred, dim=1).view(-1)
-	y_ = y.view(-1)
-	true_ans = y_-y_pred_
-	true_ans = true_ans[true_ans == 0]
-	acc = len(true_ans) / len(y_)
-	return acc
+seed_everything(17211401)
 
 dev = torch.device("cuda:0")
-#dev = torch.device("cpu")
 dataset_train = cifar_dataset("datasets", True)
 dataloader_train = DataLoader(dataset_train, batch_size=16, shuffle=True)
 dataset_test = cifar_dataset("datasets", True, train=False)
