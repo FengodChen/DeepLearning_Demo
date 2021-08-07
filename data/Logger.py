@@ -81,12 +81,9 @@ class ViT_Logger():
 
 		kernel_path = f"{self.dir_path}/kernel_{timestamp}.pkl"
 		if timestamp is not None and os.path.exists(kernel_path):
-			self.kernel = Logger_Kernel.load(kernel_path)
-			net_path = f"{self.dir_path}/{self.kernel.logfile_info['net']}"
-			self.net_storager.load(net, net_path)
-			print(f'Loaded Net, timestamp: {timestamp}')
+			self.load_kernel(timestamp)
+			print(f'[I] Loaded kernel, timestamp: {timestamp}')
 			self.print_info()
-			print(f'>>>               END INFO                <<<')
 		elif load_newest:
 			net_filePathList = glob.glob(f"{self.dir_path}/kernel_*.pkl")
 			max_timestamp = 0
@@ -94,18 +91,26 @@ class ViT_Logger():
 				file_timestamp = int(net_filePath[-18: -4])
 				if (file_timestamp > max_timestamp):
 					max_timestamp = file_timestamp
-			kernel_path = f"{self.dir_path}/kernel_{max_timestamp}.pkl"
-			self.kernel = Logger_Kernel.load(kernel_path)
-			net_path = f"{self.dir_path}/{self.kernel.logfile_info['net']}"
-			self.net_storager.load(net, net_path)
-			print(f'>>> Loaded Net, timestamp: {max_timestamp} <<<')
-			self.print_info()
-			print(f'>>>>>>>>>>>>>>>>> END INFO <<<<<<<<<<<<<<<<<<')
+			if (max_timestamp > 0):
+				self.load_kernel(max_timestamp)
+				print(f'[I] Loaded kernel, timestamp: {max_timestamp}')
+				self.print_info()
+			else:
+				print("[W] Cannot find any kernel, new a logger kernel")
+				self.new_kernel()
 		else:
-			print(">>> New Logger Kernel <<<")
-			print(">>>>>>> END INFO <<<<<<<<")
-			self.kernel = Logger_Kernel()
-			self.kernel.update_extra_info(epoch=0, avg_loss=-1.0)
+			self.new_kernel()
+			print("[I] New a logger kernel")
+	
+	def load_kernel(self, timestamp):
+		kernel_path = f"{self.dir_path}/kernel_{timestamp}.pkl"
+		self.kernel = Logger_Kernel.load(kernel_path)
+		net_path = f"{self.dir_path}/{self.kernel.logfile_info['net']}"
+		self.net_storager.load(self.net, net_path)
+	
+	def new_kernel(self):
+		self.kernel = Logger_Kernel()
+		self.kernel.update_extra_info(epoch=0, avg_loss=-1.0)
 	
 	def print_info(self):
 		epoch = self.kernel.extra_info["epoch"]

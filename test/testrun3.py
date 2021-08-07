@@ -32,6 +32,6 @@ net = ViT(
 ).to(dev)
 loss = torch.nn.CrossEntropyLoss()
 opt = torch.optim.Adam(net.parameters(), lr=3e-4)
-logger = ViT_Logger("save/ViT_True_MSA", net, load_newest=False)
+logger = ViT_Logger("save/ViT_MSA_Pos_is_Learnable", net, load_newest=True)
 
 trainer = Trainer(net, loss, opt, dev, logger, 1)
