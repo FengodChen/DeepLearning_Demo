@@ -142,8 +142,6 @@ class ViT(nn.Module):
         x = self.to_patch_embedding(img)
         b, n, _ = x.shape
 
-        print(x.shape)
-        print(self.pos_embedding.shape)
         x += self.pos_embedding
         x = self.dropout(x)
 
