@@ -118,7 +118,7 @@ class ViT(nn.Module):
 
         num_patches = num_patches_height * num_patches_width
         patch_dim = channels * patch_height * patch_width
-        assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
+        assert pool in {'cls', 'mean', 'linear'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
         self.to_patch_embedding = nn.Sequential(
             Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_height, p2 = patch_width),
@@ -131,6 +131,8 @@ class ViT(nn.Module):
         self.transformer = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
 
         self.pool = pool
+        if pool == 'linear':
+            self.to_pool = nn.Linear(num_patches, 1)
         self.to_latent = nn.Identity()
 
         self.mlp_head = nn.Sequential(
@@ -140,14 +142,19 @@ class ViT(nn.Module):
 
     def forward(self, img):
         x = self.to_patch_embedding(img)
-        b, n, _ = x.shape
+        b, n, d = x.shape
 
         x += self.pos_embedding
         x = self.dropout(x)
 
         x = self.transformer(x)
 
-        x = x.mean(dim = 1) if self.pool == 'mean' else x[:, 0]
+        if self.pool == "mean":
+            x = x.mean(dim = 1)
+        elif self.pool == "cls":
+            x = x[:, 0]
+        elif self.pool == "linear":
+            x = (self.to_pool(x.transpose(1, 2))).view(b, d)
 
         x = self.to_latent(x)
         return self.mlp_head(x)

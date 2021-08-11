@@ -33,9 +33,9 @@ net = ViT(
 	qkv_bias = True
 ).to(dev)
 logger = ViT_Logger("save/ViT_MSA_Pos_is_Learnable", net, load_newest=True)
-'''
+#'''
 
-''''''
+#'''
 from model.ViT_Pytorch import ViT
 net = ViT(
     image_size = 32,
@@ -50,10 +50,11 @@ net = ViT(
     emb_dropout = 0.1,
     channels = 3,
 	dev = dev,
-	pos_learnable= False
+	pos_learnable= False,
+	pool = 'linear'
 ).to(dev)
 logger = ViT_Logger("save/Pytorch-ViT_Pos_is_Learnable", net, load_newest=True)
-''''''
+#'''
 
 loss = torch.nn.CrossEntropyLoss()
 opt = torch.optim.Adam(net.parameters(), lr=3e-4)
