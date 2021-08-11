@@ -1,5 +1,3 @@
 *.pyc
 datasets
 save
-
-model/ViT_Pytorch.py
