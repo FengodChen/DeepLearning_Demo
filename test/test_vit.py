@@ -36,7 +36,7 @@ logger = ViT_Logger("save/ViT_MSA_Pos_is_Learnable", net, load_newest=True)
 #'''
 
 #'''
-from model.ViT_Pytorch import ViT
+from ref_model.ViT import ViT
 net = ViT(
     image_size = 32,
     patch_size = 2,
