@@ -12,7 +12,7 @@ dev = torch.device("cuda:0")
 dataset_train = cifar_dataset("datasets", True)
 dataloader_train = DataLoader(dataset_train, batch_size=64, shuffle=True)
 dataset_test = cifar_dataset("datasets", True, train=False)
-dataloader_test = DataLoader(dataset_test, batch_size=64, shuffle=True)
+dataloader_test = DataLoader(dataset_test, batch_size=16, shuffle=True)
 
 '''
 from model.SelfAttention import ViT
@@ -39,12 +39,13 @@ logger = ViT_Logger("save/ViT_MSA_Pos_is_Learnable", net, load_newest=True)
 from ref_model.SwinTransformer import SwinTransformer
 net = SwinTransformer(
     img_size = 32,
-	patch_size = 4,
-	embed_dim = 96,
+	patch_size = 2,
+	#embed_dim = 96,
+	embed_dim = 18,
 	num_classes = 10,
 	window_size = 8
 ).to(dev)
-logger = ViT_Logger("save/Ref-SwinTransformer", net, load_newest=True)
+logger = ViT_Logger("save/Ref-SwinTransformer_embed_dim-18", net, load_newest=True)
 #'''
 
 loss = torch.nn.CrossEntropyLoss()
