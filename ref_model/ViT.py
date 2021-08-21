@@ -31,7 +31,7 @@ import torch.nn.functional as F
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
-from model.Pos_Encode import get_2dPE_matrix
+from utils.Pos_Encode import get_2dPE_matrix
 
 # helpers
 

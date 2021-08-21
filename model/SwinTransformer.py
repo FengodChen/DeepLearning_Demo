@@ -2,8 +2,10 @@ import torch
 from torch import nn, einsum
 from math import sqrt
 from einops.layers.torch import Rearrange
+from einops import rearrange
 from copy import copy
-from timm.models.layers import to_2tuple
+from timm.models.layers import to_2tuple, trunc_normal_
+from utils.Pos_Encode import get_relative_position_index
 
 class Embed_Encoder(nn.Module):
 	def __init__(self, img_size, patch_size, img_channel, embed_dim):
@@ -60,3 +62,54 @@ class Embed_Pooling(nn.Module):
 		(B, L, D) = x.shape
 		assert L == self.input_size[0] * self.input_size[1] and D == self.input_dim
 		return self.pooling(x)
+
+class WindowAttention(nn.Module):
+	def __init__(self, heads_num, window_size, input_dim, output_dim=None, heads_dim=None, qkv_bias=True, dropout=0.0):
+		super().__init__()
+		heads_dim = heads_dim if heads_dim is not None else input_dim
+		output_dim = output_dim if output_dim is not None else input_dim
+		self.heads_dim = heads_dim
+		self.heads_num = heads_num
+		self.input_dim = input_dim
+		self.output_dim = output_dim
+		window_h, window_w = self.window_size = to_2tuple(window_size)
+		self.embed_num = window_h * window_w
+		
+		pos_dim = (2 * window_h - 1) * (2 * window_w - 1) #TODO Why?
+		self.register_buffer("relative_position_index", get_relative_position_index(window_size).view(-1))
+		self.relative_position_table = nn.Parameter(torch.empty(pos_dim, heads_num))
+		trunc_normal_(self.relative_position_table, std=.02)
+
+		self.W_qkv = nn.Linear(input_dim, heads_dim*heads_num*3, bias=qkv_bias)
+		self.div_qkv = Rearrange('b embed_num (qkv heads_num input_dim) -> qkv b heads_num embed_num input_dim', heads_num=heads_num, qkv=3)
+		self.reshape_pe = Rearrange("(attn_i attn_j) heads_num -> heads_num attn_i attn_j", attn_i=window_h*window_w)
+		self.softmax = nn.Softmax(dim=-1)
+		self.combine = Rearrange('b heads_num embed_num inner_dim -> b embed_num (heads_num inner_dim)', heads_num=heads_num)
+		self.out = nn.Sequential(
+		    nn.Linear(heads_dim*heads_num, output_dim), 
+		    nn.Dropout(dropout)
+		)
+
+	def forward(self, x, mask=None):
+		BW, N, D = x.shape
+		window_h, window_w = self.window_size
+		assert N == window_h * window_w and D == self.input_dim
+
+		(q, k, v) = self.div_qkv(self.W_qkv(x))
+		a = einsum('bnid, bnjd -> bnij', k, q) / sqrt(self.inner_dim)
+
+		relative_position_bias = self.reshape_pe(self.relative_position_table[self.relative_position_index])
+		a = a + relative_position_bias
+
+		if mask is not None:
+			nWindow = mask.shape[1]
+			a = rearrange(a, "(b nWindow) nHeads attn_i attn_j -> b nWindow nHeads attn_i attn_j", nWindow=nWindow)
+			a = a + mask
+			a = rearrange(a, "b nWindow nHeads attn_i attn_j -> (b nWindow) nHeads attn_i attn_j", nWindow=nWindow)
+
+		a = self.softmax(a)
+
+		y = einsum('bnij,bnjk -> bnik', a, v)
+		y = self.out(self.combine(y))
+
+		return y

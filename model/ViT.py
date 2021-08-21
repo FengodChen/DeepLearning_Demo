@@ -4,7 +4,7 @@ from math import sqrt
 from einops.layers.torch import Rearrange
 from copy import copy
 
-from model.Pos_Encode import get_2dPE_matrix
+from utils.Pos_Encode import get_2dPE_matrix
 
 class MuiltHead_SelfAttention(nn.Module):
     def __init__(self, heads_num, input_dim, output_dim=None, inner_dim=None, qkv_bias=True, dropout=0.0):
