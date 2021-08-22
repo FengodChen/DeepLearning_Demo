@@ -6,6 +6,8 @@ def get_sw_mask(input_size, window_size, shift_size):
 	input_h, input_w = to_2tuple(input_size)
 	window_h, window_w = to_2tuple(window_size)
 	shift_h, shift_w = to_2tuple(shift_size)
+	if shift_h == 0 and shift_w == 0:
+		return None
 	assert input_h % window_h == 0 and input_w % window_w == 0
 
 	img_mask = torch.zeros((input_h, input_w, 1))
