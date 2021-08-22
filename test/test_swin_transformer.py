@@ -14,36 +14,39 @@ dataloader_train = DataLoader(dataset_train, batch_size=64, shuffle=True)
 dataset_test = cifar_dataset("datasets", True, train=False)
 dataloader_test = DataLoader(dataset_test, batch_size=16, shuffle=True)
 
-'''
-from model.SelfAttention import ViT
-net = ViT(
-	img_size = (32, 32),
-	patch_size = (2, 2),
-	embed_dim = 16, 
-	classes = 10, 
-	heads_num = 8, 
-	msa_num = 4, 
-	msa_inner_dim = 16,
-	mlp_inner_dim = 16,
-	dropout = 0.5,
-	embed_dropout = 0.5,
-	img_channel = 3,
-	dev = dev,
-	pos_learnable = False,
+#'''
+from model.SwinTransformer import SwinTransformer
+net = SwinTransformer(
+	image_size = 32,
+	image_channel = 3,
+	patch_size = 2,
+	embed_dim = 18, 
+	window_size = 8,
+	classes_num = 10, 
+	heads_num_list = [3, 6, 12, 24],
+	depth_num_list = [2, 2, 6, 2],
+	wsa_dropout = 0.2,
+	mlp_dropout = 0.2,
+	droppath = 0.2,
 	qkv_bias = True
 ).to(dev)
-logger = ViT_Logger("save/ViT_MSA_Pos_is_Learnable", net, load_newest=True)
+logger = ViT_Logger("save/Mine-SwinTransformer_embed_dim-18", net, load_newest=True)
 #'''
 
-#'''
+'''
 from ref_model.SwinTransformer import SwinTransformer
 net = SwinTransformer(
     img_size = 32,
+	in_chans = 3,
 	patch_size = 2,
-	#embed_dim = 96,
 	embed_dim = 18,
+	window_size = 8,
 	num_classes = 10,
-	window_size = 8
+	num_heads = [3, 6, 12, 24],
+	depths = [2, 2, 6, 2],
+	attn_drop_rate = 0.2,
+	drop_path_rate = 0.2,
+	qkv_bias = True
 ).to(dev)
 logger = ViT_Logger("save/Ref-SwinTransformer_embed_dim-18", net, load_newest=True)
 #'''

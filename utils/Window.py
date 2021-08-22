@@ -32,9 +32,12 @@ def window_decode(window_x, input_size, window_size, shift_size):
 	BW, L, C = window_x.shape
 
 	assert input_h % window_h == 0 and input_w % window_w == 0
-	assert L == input_h * input_w
+	assert L == window_h * window_w
 
-	shifted_x = rearrange(window_x, "(B nH nW) (H W) C -> B (nH H) (nW W) C", H=window_h, W=window_w)
+	window_h_num = input_h // window_h
+	window_w_num = input_w // window_w
+
+	shifted_x = rearrange(window_x, "(B nH nW) (H W) C -> B (nH H) (nW W) C", H=window_h, nH=window_h_num, nW=window_w_num)
 
 	if shift_h == 0 and shift_w == 0:
 		twoDim_x = shifted_x
