@@ -14,42 +14,45 @@ dataloader_train = DataLoader(dataset_train, batch_size=64, shuffle=True)
 dataset_test = cifar_dataset("datasets", True, train=False)
 dataloader_test = DataLoader(dataset_test, batch_size=16, shuffle=True)
 
-#'''
-from model.SwinTransformer import SwinTransformer
-net = SwinTransformer(
-	image_size = 32,
-	image_channel = 3,
-	patch_size = 2,
-	embed_dim = 18, 
-	window_size = 8,
-	classes_num = 10, 
-	heads_num_list = [3, 6, 12, 24],
-	depth_num_list = [2, 2, 6, 2],
-	wsa_dropout = 0.2,
-	mlp_dropout = 0.2,
-	droppath = 0.2,
-	qkv_bias = True
-).to(dev)
-logger = ViT_Logger("save/Mine-SwinTransformer_embed_dim-18", net, load_newest=True)
-#'''
+def get_mine_net():
+	from model.SwinTransformer import SwinTransformer
+	net = SwinTransformer(
+		image_size = 32,
+		image_channel = 3,
+		patch_size = 2,
+		embed_dim = 18, 
+		window_size = 8,
+		classes_num = 10, 
+		heads_num_list = [3, 6, 12, 24],
+		depth_num_list = [2, 2, 6, 2],
+		wsa_dropout = 0.2,
+		mlp_dropout = 0.2,
+		droppath = 0.2,
+		qkv_bias = True
+	).to(dev)
+	logger = ViT_Logger("save/Mine-SwinTransformer_embed_dim-18", net, load_newest=True)
+	return (net, logger)
 
-'''
-from ref_model.SwinTransformer import SwinTransformer
-net = SwinTransformer(
-    img_size = 32,
-	in_chans = 3,
-	patch_size = 2,
-	embed_dim = 18,
-	window_size = 8,
-	num_classes = 10,
-	num_heads = [3, 6, 12, 24],
-	depths = [2, 2, 6, 2],
-	attn_drop_rate = 0.2,
-	drop_path_rate = 0.2,
-	qkv_bias = True
-).to(dev)
-logger = ViT_Logger("save/Ref-SwinTransformer_embed_dim-18", net, load_newest=True)
-#'''
+def get_ref_net():
+	from ref_model.SwinTransformer import SwinTransformer
+	net = SwinTransformer(
+	    img_size = 32,
+		in_chans = 3,
+		patch_size = 2,
+		embed_dim = 18,
+		window_size = 8,
+		num_classes = 10,
+		num_heads = [3, 6, 12, 24],
+		depths = [2, 2, 6, 2],
+		attn_drop_rate = 0.2,
+		drop_path_rate = 0.2,
+		qkv_bias = True
+	).to(dev)
+	logger = ViT_Logger("save/Ref-SwinTransformer_embed_dim-18", net, load_newest=True)
+	return (net, logger)
+
+(net, logger) = get_mine_net()
+#(net, logger) = get_ref_net()
 
 loss = torch.nn.CrossEntropyLoss()
 opt = torch.optim.Adam(net.parameters(), lr=3e-4)

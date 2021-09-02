@@ -5,6 +5,8 @@ from copy import copy
 import os
 import time
 import glob
+from tensorboardX import SummaryWriter
+import torchvision
 
 class Logger_Kernel():
 	def __init__(self) -> None:
@@ -75,6 +77,7 @@ class ViT_Logger():
 		self.net_storager = Net_Storager()
 		self.dir_path = dir_path
 		self.net = net
+		self.writer = SummaryWriter(f"runs/{dir_path}")
 
 		if not os.path.exists(self.dir_path):
 			os.makedirs(self.dir_path)
@@ -122,6 +125,13 @@ class ViT_Logger():
 	
 	def update_avg_loss(self, avg_loss):
 		self.kernel.update_extra_info(avg_loss=avg_loss)
+	
+	def tensorboard_update_batchs(self, x):
+		x_grid = torchvision.utils.make_grid(x)
+		self.writer.add_image("batch_sample", x_grid)
+	
+	def tensorboard_update_net(self, x):
+		self.writer.add_graph(self.net, x)
 	
 	def add_epoch(self, epochs=1):
 		if 'epoch' in self.kernel.extra_info:
