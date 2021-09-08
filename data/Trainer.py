@@ -34,8 +34,8 @@ class Trainer():
 			avg_loss = total_loss / len(dataloader)
 			self.logger.update_avg_loss(avg_loss)
 			self.logger.add_epoch()
-			self.logger.tensorboard_update_batchs(x)
-			self.logger.tensorboard_update_net(x)
+			#self.logger.tensorboard_update_batchs(x)
+			#self.logger.tensorboard_update_net(x)
 
 			if (epoch % self.checkpoint_epoch == 0):
 				self.logger.save()
@@ -63,8 +63,8 @@ class Trainer():
 			total_acc += acc
 		pbar.close()
 
-		self.logger.tensorboard_update_batchs(x)
-		self.logger.tensorboard_update_net(x)
+		#self.logger.tensorboard_update_batchs(x)
+		#self.logger.tensorboard_update_net(x)
 
 		avg_loss = total_loss / len(dataloader)
 		avg_acc = total_acc / len(dataloader)
