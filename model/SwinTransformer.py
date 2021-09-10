@@ -93,9 +93,10 @@ class Classifier(nn.Module):
 		return x
 
 class WindowAttention(nn.Module):
-	def __init__(self, input_size, heads_num, window_size, shift_size, input_dim, output_dim=None, heads_dim=None, qkv_bias=True, dropout=0.0):
+	def __init__(self, input_size, heads_num, window_size, shift_size, input_dim, output_dim=None, qkv_bias=True, dropout=0.0):
 		super().__init__()
-		heads_dim = heads_dim if heads_dim is not None else input_dim
+		assert input_dim % heads_num == 0
+		heads_dim = input_dim // heads_num
 		output_dim = output_dim if output_dim is not None else input_dim
 		self.heads_dim = heads_dim
 		self.heads_num = heads_num
@@ -113,7 +114,7 @@ class WindowAttention(nn.Module):
 		trunc_normal_(self.relative_position_table, std=.02)
 
 		self.W_qkv = nn.Linear(input_dim, heads_dim*heads_num*3, bias=qkv_bias)
-		self.div_qkv = Rearrange('b embed_num (qkv heads_num input_dim) -> qkv b heads_num embed_num input_dim', heads_num=heads_num, qkv=3)
+		self.div_qkv = Rearrange('b embed_num (qkv heads_num heads_dim) -> qkv b heads_num embed_num heads_dim', heads_num=heads_num, qkv=3)
 		self.reshape_pe = Rearrange("(attn_i attn_j) heads_num -> heads_num attn_i attn_j", attn_i=window_h*window_w)
 		self.softmax = nn.Softmax(dim=-1)
 		self.combine = Rearrange('b heads_num embed_num inner_dim -> b embed_num (heads_num inner_dim)', heads_num=heads_num)
@@ -169,7 +170,7 @@ class Mlp(nn.Module):
 
 class SwinTransformerBlock(nn.Module):
 	def __init__(self, input_size, input_dim, window_size, shift_size, heads_num,
-					output_dim=None, wsa_inner_dim=None, wsa_output_dim=None, mlp_inner_dim=None,
+					output_dim=None, wsa_output_dim=None, mlp_inner_dim=None,
 					wsa_dropout=0.0, mlp_dropout=0.0, droppath=0.0,
 					qkv_bias=True):
 		super().__init__()
@@ -184,7 +185,6 @@ class SwinTransformerBlock(nn.Module):
 			shift_size = shift_size,
 			input_dim = input_dim,
 			output_dim = wsa_output_dim,
-			heads_dim = wsa_inner_dim,
 			qkv_bias = qkv_bias,
 			dropout = wsa_dropout
 		)
@@ -208,7 +208,7 @@ class SwinTransformerBlock(nn.Module):
 
 class BasicBlock(nn.Module):
 	def __init__(self, input_size, input_dim, window_size, heads_num, depth_num, pre_pooling:bool,
-					wsa_inner_dim=None, mlp_inner_dim=None,
+					mlp_inner_dim=None,
 					wsa_dropout=0.2, mlp_dropout=0.2, droppath=0.2,
 					qkv_bias=True):
 		super().__init__()
@@ -241,7 +241,7 @@ class BasicBlock(nn.Module):
 				window_size = window_size,
 				shift_size = shift_size,
 				heads_num = heads_num,
-				wsa_inner_dim = wsa_inner_dim, mlp_inner_dim = mlp_inner_dim,
+				mlp_inner_dim = mlp_inner_dim,
 				wsa_dropout = wsa_dropout, mlp_dropout = mlp_dropout, droppath = droppath,
 				qkv_bias = qkv_bias
 			)

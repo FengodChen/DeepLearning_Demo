@@ -30,7 +30,7 @@ def get_mine_net():
 		droppath = 0.2,
 		qkv_bias = True
 	).to(dev)
-	logger = ViT_Logger("save/Mine-SwinTransformer_embed_dim-18", net, load_newest=True)
+	logger = ViT_Logger("save/Mine-SwinTransformer_embed_dim-18_qkv-heads-dim-same-as-ref", net, load_newest=True)
 	return (net, logger)
 
 def get_ref_net():
