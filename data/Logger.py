@@ -61,8 +61,8 @@ class Net_Storager():
 	def save(self, net, file_path):
 		torch.save(net.state_dict(), file_path)
 	
-	def load(self, net, file_path):
-		state_dict = torch.load(file_path)
+	def load(self, net, file_path, dev="cpu"):
+		state_dict = torch.load(file_path, map_location=dev)
 		net.load_state_dict(state_dict)
 
 class ViT_Logger():
