@@ -31,8 +31,13 @@ def get_mine_net():
 		qkv_bias = True,
 		mlp_inner_ratio = 4
 	).to(dev)
-	logger = ViT_Logger("save/Mine-SwinTransformer_embed_dim-18_qkv-heads-dim-same-as-ref", net, load_newest=True)
-	return (net, logger)
+
+	logger = ViT_Logger("save/Mine-SwinTransformer_embed_qkv-heads-dim-same_mlp-ratio-same_init-weights", net, load_newest=True)
+	loss = torch.nn.CrossEntropyLoss()
+	opt = torch.optim.Adam(net.parameters(), lr=3e-4)
+	trainer = Trainer(net, loss, opt, dev, logger, 1)
+
+	return (net, logger, trainer)
 
 def get_ref_net():
 	from ref_model.SwinTransformer import SwinTransformer
@@ -50,13 +55,10 @@ def get_ref_net():
 		qkv_bias = True,
 		mlp_ratio = 4
 	).to(dev)
+
 	logger = ViT_Logger("save/Ref-SwinTransformer_embed_dim-18", net, load_newest=True)
-	return (net, logger)
+	loss = torch.nn.CrossEntropyLoss()
+	opt = torch.optim.Adam(net.parameters(), lr=3e-4)
 
-(net, logger) = get_mine_net()
-#(net, logger) = get_ref_net()
-
-loss = torch.nn.CrossEntropyLoss()
-opt = torch.optim.Adam(net.parameters(), lr=3e-4)
-
-trainer = Trainer(net, loss, opt, dev, logger, 1)
+	trainer = Trainer(net, loss, opt, dev, logger, 1)
+	return (net, logger, trainer)

@@ -312,6 +312,8 @@ class SwinTransformer(nn.Module):
 			input_dim = inner_dim,
 			classes_num = classes_num
 		)
+
+		self.apply(self._init_weights)
 	
 	def forward(self, x):
 		(B, C, H, W) = x.shape
@@ -323,3 +325,12 @@ class SwinTransformer(nn.Module):
 		x = self.classifier(x)
 
 		return x
+	
+	def _init_weights(self, m):
+		if isinstance(m, nn.Linear):
+			trunc_normal_(m.weight, std=.02)
+			if isinstance(m, nn.Linear) and m.bias is not None:
+				nn.init.constant_(m.bias, 0)
+		elif isinstance(m, nn.LayerNorm):
+			nn.init.constant_(m.bias, 0)
+			nn.init.constant_(m.weight, 1.0)
