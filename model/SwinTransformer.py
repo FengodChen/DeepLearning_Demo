@@ -152,9 +152,9 @@ class WindowAttention(nn.Module):
 		return y
 
 class Mlp(nn.Module):
-	def __init__(self, input_dim, hidden_dim=None, output_dim=None, dropout=0.0):
+	def __init__(self, input_dim, hidden_ratio=None, output_dim=None, dropout=0.0):
 		super().__init__()
-		hidden_dim = hidden_dim if hidden_dim is not None else input_dim
+		hidden_dim = int(input_dim * hidden_ratio) if hidden_ratio is not None else input_dim
 		output_dim = output_dim if output_dim is not None else input_dim
 
 		self.mlp = nn.Sequential(
@@ -170,7 +170,7 @@ class Mlp(nn.Module):
 
 class SwinTransformerBlock(nn.Module):
 	def __init__(self, input_size, input_dim, window_size, shift_size, heads_num,
-					output_dim=None, wsa_output_dim=None, mlp_inner_dim=None,
+					output_dim=None, wsa_output_dim=None, mlp_inner_ratio=None,
 					wsa_dropout=0.0, mlp_dropout=0.0, droppath=0.0,
 					qkv_bias=True):
 		super().__init__()
@@ -191,7 +191,7 @@ class SwinTransformerBlock(nn.Module):
 		self.LN2 = nn.LayerNorm(wsa_output_dim)
 		self.MLP = Mlp(
 			input_dim = wsa_output_dim,
-			hidden_dim = mlp_inner_dim,
+			hidden_ratio = mlp_inner_ratio,
 			output_dim = output_dim,
 			dropout = mlp_dropout
 		)
@@ -208,7 +208,7 @@ class SwinTransformerBlock(nn.Module):
 
 class BasicBlock(nn.Module):
 	def __init__(self, input_size, input_dim, window_size, heads_num, depth_num, pre_pooling:bool,
-					mlp_inner_dim=None,
+					mlp_inner_ratio=None,
 					wsa_dropout=0.2, mlp_dropout=0.2, droppath=0.2,
 					qkv_bias=True):
 		super().__init__()
@@ -241,7 +241,7 @@ class BasicBlock(nn.Module):
 				window_size = window_size,
 				shift_size = shift_size,
 				heads_num = heads_num,
-				mlp_inner_dim = mlp_inner_dim,
+				mlp_inner_ratio = mlp_inner_ratio,
 				wsa_dropout = wsa_dropout, mlp_dropout = mlp_dropout, droppath = droppath,
 				qkv_bias = qkv_bias
 			)
@@ -263,7 +263,7 @@ class BasicBlock(nn.Module):
 
 
 class SwinTransformer(nn.Module):
-	def __init__(self, image_size, image_channel, patch_size, embed_dim, window_size, classes_num,
+	def __init__(self, image_size, image_channel, patch_size, embed_dim, window_size, classes_num, mlp_inner_ratio,
 					heads_num_list, depth_num_list,
 					wsa_dropout=0.2, mlp_dropout=0.2, droppath=0.2,
 					qkv_bias=True):
@@ -296,6 +296,7 @@ class SwinTransformer(nn.Module):
 				heads_num = heads_num_list[ptr],
 				depth_num = depth_num_list[ptr],
 				pre_pooling = pre_pooling,
+				mlp_inner_ratio = mlp_inner_ratio,
 				wsa_dropout = wsa_dropout,
 				mlp_dropout = mlp_dropout,
 				droppath = droppath,

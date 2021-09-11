@@ -28,7 +28,8 @@ def get_mine_net():
 		wsa_dropout = 0.2,
 		mlp_dropout = 0.2,
 		droppath = 0.2,
-		qkv_bias = True
+		qkv_bias = True,
+		mlp_inner_ratio = 4
 	).to(dev)
 	logger = ViT_Logger("save/Mine-SwinTransformer_embed_dim-18_qkv-heads-dim-same-as-ref", net, load_newest=True)
 	return (net, logger)
@@ -46,7 +47,8 @@ def get_ref_net():
 		depths = [2, 2, 6, 2],
 		attn_drop_rate = 0.2,
 		drop_path_rate = 0.2,
-		qkv_bias = True
+		qkv_bias = True,
+		mlp_ratio = 4
 	).to(dev)
 	logger = ViT_Logger("save/Ref-SwinTransformer_embed_dim-18", net, load_newest=True)
 	return (net, logger)
