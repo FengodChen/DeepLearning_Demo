@@ -6,13 +6,15 @@ from data.Trainer import Trainer
 from data.Logger import ViT_Logger
 import torch
 
+torch.backends.cudnn.benchmark = True
+
 seed_everything(17211401)
 
-dev = torch.device("cuda:0")
+dev = torch.device("cuda")
 dataset_train = cifar_dataset("datasets", True)
-dataloader_train = DataLoader(dataset_train, batch_size=64, shuffle=True)
+dataloader_train = DataLoader(dataset_train, batch_size=2048, shuffle=True, num_workers=48)
 dataset_test = cifar_dataset("datasets", True, train=False)
-dataloader_test = DataLoader(dataset_test, batch_size=16, shuffle=True)
+dataloader_test = DataLoader(dataset_test, batch_size=2048, shuffle=True, num_workers=48)
 
 def get_mine_net():
 	from model.SwinTransformer import SwinTransformer
@@ -30,7 +32,8 @@ def get_mine_net():
 		droppath = 0.2,
 		qkv_bias = True,
 		mlp_inner_ratio = 4
-	).to(dev)
+	)
+	net = torch.nn.DataParallel(net).to(dev)
 
 	logger = ViT_Logger("save/Mine-SwinTransformer_embed_qkv-heads-dim-same_mlp-ratio-same_init-weights", net, load_newest=True)
 	loss = torch.nn.CrossEntropyLoss()
@@ -54,7 +57,8 @@ def get_ref_net():
 		drop_path_rate = 0.2,
 		qkv_bias = True,
 		mlp_ratio = 4
-	).to(dev)
+	)
+	net = torch.nn.DataParallel(net).to(dev)
 
 	logger = ViT_Logger("save/Ref-SwinTransformer_embed_dim-18", net, load_newest=True)
 	loss = torch.nn.CrossEntropyLoss()
