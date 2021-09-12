@@ -26,12 +26,12 @@ class Trainer():
 
 				pbar.set_postfix({'loss': loss.item(), "epoch": epoch})
 				pbar.update(len(x))
-				self.logger.update_loss(loss.item())
 
 				total_loss += loss.item()
 			pbar.close()
 
 			avg_loss = total_loss / len(dataloader)
+			self.logger.log_loss(avg_loss)
 			self.logger.update_avg_loss(avg_loss)
 			self.logger.add_epoch()
 			#self.logger.tensorboard_update_batchs(x)

@@ -120,7 +120,7 @@ class ViT_Logger():
 		epoch_avg_loss = self.kernel.extra_info["avg_loss"]
 		print(f'epoch: {epoch}, epoch_avg_loss: {epoch_avg_loss}')
 	
-	def update_loss(self, loss):
+	def log_loss(self, loss):
 		self.loss_logger.add([loss])
 	
 	def update_avg_loss(self, avg_loss):
