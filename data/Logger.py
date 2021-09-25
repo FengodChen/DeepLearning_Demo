@@ -1,5 +1,6 @@
 import pickle
 import csv
+import numpy as np
 import torch
 from copy import copy
 import os
@@ -58,6 +59,14 @@ class CSV_Operator():
 			csv_writter.writerows(self.buffer)
 		self.clear()
 	
+	def read(self, file_path):
+		with open(file_path, "r", newline='') as f:
+			csv_reader = csv.reader(f)
+			l = list(csv_reader)
+			name = l[0]
+			data = l[1:]
+		return (name, data)
+
 class Net_Storager():
 	def __init__(self) -> None:
 		pass
@@ -79,9 +88,11 @@ class ViT_Logger():
 
 		self.train_logger = CSV_Operator()
 		self.eval_logger = CSV_Operator()
+		self.plot_logger = CSV_Operator()
 		self.net_storager = Net_Storager()
 		self.dir_path = dir_path
 		self.net = net
+		self.kernel = None
 
 		if not os.path.exists(self.dir_path):
 			os.makedirs(self.dir_path)
@@ -168,3 +179,18 @@ class ViT_Logger():
 		self.kernel.update_logfile_info(train_log=train_filename, net=net_filename, eval_log=eval_filename)
 		self.kernel.update_history(timestamp)
 		Logger_Kernel.save(self.kernel, kernel_filepath)
+	
+	def get_log(self, log_type):
+		assert log_type in ["eval", "train"]
+		name_array, data_array = [], []
+		kernel_history_timestamp_array = self.kernel.kernel_history
+		for history_timestamp in kernel_history_timestamp_array:
+			kernel_path = f"{self.dir_path}/kernel_{history_timestamp}.pkl"
+			history_kernel = Logger_Kernel.load(kernel_path)
+			history_log_filename = history_kernel.logfile_info[f"{log_type}_log"]
+			history_log_path = f"{self.dir_path}/{history_log_filename}"
+			(name, data) = self.plot_logger.read(history_log_path)
+			name_array = name
+			data_array = data_array + data
+		data_np = np.array(data_array, dtype=float).T
+		return (name_array, data_np)
