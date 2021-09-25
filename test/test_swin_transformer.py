@@ -35,7 +35,7 @@ def get_mine_net():
 	)
 	net = torch.nn.DataParallel(net).to(dev)
 
-	logger = ViT_Logger("save/Mine-SwinTransformer_batch-size-2048", net, load_newest=True)
+	logger = ViT_Logger("save/Mine-SwinTransformer_test_batch-size-2048", net, load_newest=True)
 	loss = torch.nn.CrossEntropyLoss()
 	opt = torch.optim.Adam(net.parameters(), lr=3e-4)
 	trainer = Trainer(net, loss, opt, dev, logger, 10)

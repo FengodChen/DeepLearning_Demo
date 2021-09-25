@@ -39,17 +39,22 @@ class Logger_Kernel():
 class CSV_Operator():
 	def __init__(self) -> None:
 		self.buffer = []
+		self.head_list = None
 	
 	def add(self, data):
 		self.buffer.append(data)
 	
 	def clear(self):
 		self.buffer = []
+
+	def set_head(self, head_list, focus=False):
+		if focus or self.head_list is None:
+			self.head_list = head_list
 	
 	def save(self, file_path):
 		with open(file_path, "a", newline='') as f:
 			csv_writter = csv.writer(f)
-			#for d in self.buffer:
+			csv_writter.writerow(self.head_list)
 			csv_writter.writerows(self.buffer)
 		self.clear()
 	
@@ -72,7 +77,8 @@ class ViT_Logger():
 
 		assert not (timestamp is not None and load_newest)
 
-		self.loss_logger = CSV_Operator()
+		self.train_logger = CSV_Operator()
+		self.eval_logger = CSV_Operator()
 		self.net_storager = Net_Storager()
 		self.dir_path = dir_path
 		self.net = net
@@ -118,8 +124,13 @@ class ViT_Logger():
 		epoch_avg_loss = self.kernel.extra_info["avg_loss"]
 		print(f'epoch: {epoch}, epoch_avg_loss: {epoch_avg_loss}')
 	
-	def log_loss(self, loss):
-		self.loss_logger.add([loss])
+	def log_train(self, epoch, loss, acc):
+		self.train_logger.set_head(["epoch", "loss", "acc"])
+		self.train_logger.add([epoch, loss, acc])
+	
+	def log_eval(self, epoch, loss, acc):
+		self.eval_logger.set_head(["epoch", "loss", "acc"])
+		self.eval_logger.add([epoch, loss, acc])
 	
 	def update_avg_loss(self, avg_loss):
 		self.kernel.update_extra_info(avg_loss=avg_loss)
@@ -139,19 +150,21 @@ class ViT_Logger():
 
 	def save(self):
 		timestamp = time.strftime("%Y%m%d%H%M%S")
-		avg_loss = self.kernel.extra_info['avg_loss']
 		epoch = self.kernel.extra_info['epoch']
-		loss_filename = f"loss_log_{timestamp}_loss-{avg_loss}_epoch-{epoch}.csv"
-		net_filename = f"net_{timestamp}_loss-{avg_loss}_epoch-{epoch}.pth"
+		train_filename = f"loss_log_{timestamp}_epoch-{epoch}.csv"
+		eval_filename = f"eval_log_{timestamp}_epoch-{epoch}.csv"
+		net_filename = f"net_{timestamp}_epoch-{epoch}.pth"
 		kernel_filename = f"kernel_{timestamp}.pkl"
 
-		loss_filepath = f"{self.dir_path}/{loss_filename}"
+		train_filepath = f"{self.dir_path}/{train_filename}"
+		eval_filepath = f"{self.dir_path}/{eval_filename}"
 		net_filepath = f"{self.dir_path}/{net_filename}"
 		kernel_filepath = f"{self.dir_path}/{kernel_filename}"
 
-		self.loss_logger.save(loss_filepath)
+		self.train_logger.save(train_filepath)
+		self.eval_logger.save(eval_filepath)
 		self.net_storager.save(self.net, net_filepath)
 
-		self.kernel.update_logfile_info(loss=loss_filename, net=net_filename)
+		self.kernel.update_logfile_info(train_log=train_filename, net=net_filename, eval_log=eval_filename)
 		self.kernel.update_history(timestamp)
 		Logger_Kernel.save(self.kernel, kernel_filepath)
