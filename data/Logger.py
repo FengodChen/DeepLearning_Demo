@@ -7,6 +7,7 @@ import os
 import time
 import glob
 import torchvision
+from matplotlib import pyplot as plt
 
 class Logger_Kernel():
 	def __init__(self) -> None:
@@ -194,3 +195,33 @@ class ViT_Logger():
 			data_array = data_array + data
 		data_np = np.array(data_array, dtype=float).T
 		return (name_array, data_np)
+	
+	def plot_log(self, log_type, plot_method, save_path=None):
+		assert log_type in ["eval", "train"]
+		assert plot_method in ["show", "save"]
+		name_array, data_np = self.get_log(log_type)
+		plt.figure()
+
+		[name_epoch, name_loss, name_acc] = name_array
+		[data_epoch, data_loss, data_acc] = data_np
+
+		plt.subplot(121)
+		plt.plot(data_epoch, data_loss)
+		plt.xlabel(name_epoch)
+		plt.ylabel(name_loss)
+		plt.title(f"{log_type} {name_loss}")
+		plt.grid(True)
+
+		plt.subplot(122)
+		plt.plot(data_epoch, data_acc)
+		plt.xlabel(name_epoch)
+		plt.ylabel(name_acc)
+		plt.title(f"{log_type} {name_acc}")
+		plt.grid(True)
+
+		if (plot_method == "show"):
+			plt.show()
+		elif (plot_method == "save"):
+			assert save_path is not None
+			plt.savefig(save_path)
+		
