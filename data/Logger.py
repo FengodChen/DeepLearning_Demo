@@ -79,7 +79,8 @@ class Net_Storager():
         state_dict = torch.load(file_path, map_location=dev)
         net.load_state_dict(state_dict)
 
-class ViT_Logger():
+
+class Logger():
     def __init__(self, dir_path, net, timestamp=None, load_newest=False) -> None:
         '''
         If timestamp is not, create new logger kernel, else load kernel and data
@@ -196,14 +197,14 @@ class ViT_Logger():
         data_np = np.array(data_array, dtype=float).T
         return (name_array, data_np)
     
-    def plot_log(self, log_type, plot_method, save_path=None):
+    def plot_log(self, log_type, plot_method, save_path=None, figsize=(12, 6)):
         assert log_type in ["eval", "train"]
         assert plot_method in ["show", "save"]
         name_array, data_np = self.get_log(log_type)
-        plt.figure()
-
         [name_epoch, name_loss, name_acc] = name_array
         [data_epoch, data_loss, data_acc] = data_np
+
+        plt.figure(figsize=figsize)
 
         plt.subplot(121)
         plt.plot(data_epoch, data_loss)

@@ -3,7 +3,7 @@ from data.Datasets import cifar_dataset, mnist_dataset
 from utils.Compare_Func import cifar10_compare_func as compare_func
 from utils.Seed import seed_everything
 from data.Trainer import Trainer
-from data.Logger import ViT_Logger
+from data.Logger import Logger
 import torch
 
 torch.backends.cudnn.benchmark = True
@@ -35,7 +35,8 @@ def get_mine_net():
     )
     net = torch.nn.DataParallel(net).to(dev)
 
-    logger = ViT_Logger("save/Mine-SwinTransformer_test_batch-size-2048", net, load_newest=True)
+
+    logger = Logger("save/Mine-SwinTransformer_test_batch-size-2048", net, load_newest=True)
     loss = torch.nn.CrossEntropyLoss()
     opt = torch.optim.Adam(net.parameters(), lr=3e-4)
     trainer = Trainer(net, loss, opt, dev, logger, 10)
@@ -60,7 +61,8 @@ def get_ref_net():
     )
     net = torch.nn.DataParallel(net).to(dev)
 
-    logger = ViT_Logger("save/Ref-SwinTransformer_embed_dim-18", net, load_newest=True)
+
+    logger = Logger("save/Ref-SwinTransformer_embed_dim-18", net, load_newest=True)
     loss = torch.nn.CrossEntropyLoss()
     opt = torch.optim.Adam(net.parameters(), lr=3e-4)
 
