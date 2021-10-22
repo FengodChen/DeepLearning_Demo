@@ -12,4 +12,4 @@ torch.backends.cudnn.benchmark = True
 seed_everything(17211401)
 
 dev = torch.device("cuda")
-net = Yolo3(in_channel=3)
+net = Yolo3(in_channel=3, classes_num=80, anchor_num=3)

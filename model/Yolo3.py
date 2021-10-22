@@ -78,19 +78,24 @@ class Darknet53(nn.Module):
         return y
 
 class YoloBlock(nn.Module):
-    def __init__(self):
+    def __init__(self, classes_num, anchor_num):
         super().__init__()
 
+        anchor_args = 4
+        confidence = 1
+
+        feature_channel = anchor_num * (anchor_args + confidence + classes_num)
+
         self.f_1024_connect_darknet_block = self.make_connect_darknet_block(in_channel=1024, out_channel=1024//2)
-        self.f_1024_feature_map_block = self.make_feature_map_block(512)
-        self.f_1024_upsample_block = self.make_upsample_block(512)
+        self.f_1024_feature_map_block = self.make_feature_map_block(in_channel=512, out_channel=feature_channel)
+        self.f_1024_upsample_block = self.make_upsample_block(in_channel=512)
 
         self.f_512_connect_darknet_block = self.make_connect_darknet_block(in_channel=(512+256), out_channel=(512+256)//3)
-        self.f_512_feature_map_block = self.make_feature_map_block(256)
-        self.f_512_upsample_block = self.make_upsample_block(256)
+        self.f_512_feature_map_block = self.make_feature_map_block(in_channel=256, out_channel=feature_channel)
+        self.f_512_upsample_block = self.make_upsample_block(in_channel=256)
 
         self.f_256_connect_darknet_block = self.make_connect_darknet_block(in_channel=(256+128), out_channel=(256+128)//3)
-        self.f_256_feature_map_block = self.make_feature_map_block(128)
+        self.f_256_feature_map_block = self.make_feature_map_block(in_channel=128, out_channel=feature_channel)
     
     def forward(self, x_256, x_512, x_1024):
         x_1024 = self.f_1024_connect_darknet_block(x_1024)
@@ -125,18 +130,18 @@ class YoloBlock(nn.Module):
         )
         return block
     
-    def make_feature_map_block(self, in_channel):
+    def make_feature_map_block(self, in_channel, out_channel):
         block = nn.Sequential(
             ConvBlock(in_channel=in_channel, out_channel=in_channel*2, kernel_size=3, stride=1, padding=1),
-            ConvBlock(in_channel=in_channel*2, out_channel=255, kernel_size=1, stride=1, padding=0)
+            ConvBlock(in_channel=in_channel*2, out_channel=out_channel, kernel_size=1, stride=1, padding=0)
         )
         return block
 
 class Yolo3(nn.Module):
-    def __init__(self, in_channel):
+    def __init__(self, in_channel, classes_num, anchor_num):
         super().__init__()
         self.darknet53 = Darknet53(in_channel)
-        self.yolo = YoloBlock()
+        self.yolo = YoloBlock(classes_num=classes_num, anchor_num=anchor_num)
     
     def forward(self, x):
         (x_256, x_512, x_1024) = self.darknet53(x)
