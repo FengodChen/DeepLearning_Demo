@@ -97,7 +97,8 @@ class YoloBlock(nn.Module):
         self.f_256_connect_darknet_block = self.make_connect_darknet_block(in_channel=(256+128), out_channel=(256+128)//3)
         self.f_256_feature_map_block = self.make_feature_map_block(in_channel=128, out_channel=feature_channel)
     
-    def forward(self, x_256, x_512, x_1024):
+    def forward(self, x):
+        (x_256, x_512, x_1024) = x
         x_1024 = self.f_1024_connect_darknet_block(x_1024)
         feature_map_1024 = self.f_1024_feature_map_block(x_1024)
 
@@ -138,12 +139,14 @@ class YoloBlock(nn.Module):
         return block
 
 class Yolo3(nn.Module):
-    def __init__(self, in_channel, classes_num, anchor_num):
+    def __init__(self, in_channel, classes_num, anchor_num, gpu_num):
         super().__init__()
-        self.darknet53 = Darknet53(in_channel)
-        self.yolo = YoloBlock(classes_num=classes_num, anchor_num=anchor_num)
+        self.gpu_num = gpu_num
+        self.yolo3 = nn.Sequential(
+            Darknet53(in_channel),
+            YoloBlock(classes_num=classes_num, anchor_num=anchor_num)
+        )
     
     def forward(self, x):
-        (x_256, x_512, x_1024) = self.darknet53(x)
-        y = (y_256, y_512, y_1024) = self.yolo(x_256, x_512, x_1024)
-        return y
+        x = nn.parallel.data_parallel(self.yolo3, x, range(self.gpu_num)) if self.gpu_num > 1 else self.yolo3(x)
+        return x
