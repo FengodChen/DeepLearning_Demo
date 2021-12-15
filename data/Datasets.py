@@ -20,9 +20,10 @@ def mnist_dataset(root_dir, download=False):
     ds = MNIST(root=root_dir, download=download, transform=transform)
     return ds
 
-def voc_dataset(root_dir, year, image_set="train", download=False):
+def voc_dataset(root_dir, year, resize, image_set="train", download=False):
     assert image_set in ["train", "val", "test"]
     transform = transforms.Compose([
+        transforms.Resize(resize),
         transforms.ToTensor(),
         transforms.GaussianBlur(3),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))

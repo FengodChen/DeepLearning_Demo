@@ -12,9 +12,9 @@ seed_everything(17211401)
 
 dev = torch.device("cuda")
 dataset_train = cifar_dataset("datasets", True)
-dataloader_train = DataLoader(dataset_train, batch_size=2048, shuffle=True, num_workers=48)
+dataloader_train = DataLoader(dataset_train, batch_size=256, shuffle=True, num_workers=48)
 dataset_test = cifar_dataset("datasets", True, train=False)
-dataloader_test = DataLoader(dataset_test, batch_size=2048, shuffle=True, num_workers=48)
+dataloader_test = DataLoader(dataset_test, batch_size=256, shuffle=True, num_workers=48)
 
 def get_mine_net():
     from model.SwinTransformer import SwinTransformer
@@ -36,7 +36,7 @@ def get_mine_net():
     net = torch.nn.DataParallel(net).to(dev)
 
 
-    logger = Logger("save/Mine-SwinTransformer_test_batch-size-2048", net, load_newest=True)
+    logger = Logger("save/Mine-SwinTransformer_test_batch-size-256", net, load_newest=True)
     loss = torch.nn.CrossEntropyLoss()
     opt = torch.optim.Adam(net.parameters(), lr=3e-4)
     trainer = Trainer(net, loss, opt, dev, logger, 10)
