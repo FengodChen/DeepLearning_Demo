@@ -1,6 +1,17 @@
 from torchvision.datasets import CIFAR10, MNIST, voc
 from torchvision import transforms
+from torch.utils.data.dataset import Dataset
 import torch
+
+class Imagenet_1k(Dataset):
+    def __init__(self) -> None:
+        super().__init__()
+    
+    def __len__(self):
+        pass
+
+    def __getitem__(self, index):
+        pass
 
 def cifar_dataset(root_dir, download=False, train=True):
     transform = transforms.Compose([
