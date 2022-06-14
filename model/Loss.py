@@ -19,7 +19,7 @@ class YOLO3_Loss(nn.Module):
             for (feature_level, feature_map) in enumerate(yolo3_pred):
                 (C, H, W) = feature_map.shape
                 feature_map_size = (H, W)
-                dataset_true.append(self.dataset_utils.label2tensor(y_true[batch_i], feature_map_size, feature_level))
+                dataset_true.append(self.dataset_utils.label2tensor(y_true[batch_i], feature_map_size, feature_level).to(feature_map.device))
 
             yolo3_pred = self.dataset_utils.encode_yolo3_output(yolo3_pred)
             dataset_true = self.dataset_utils.encode_yolo3_output(dataset_true, normlize=False)
