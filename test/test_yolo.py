@@ -17,7 +17,7 @@ seed_everything(21120009)
 BATCH_SIZE = 4
 CLUSTER_NUM = 9
 ANCHOR_NUM = 3
-GPU_NUM = 0
+GPU_NUM = 1
 IMG_SIZE = (224, 224)
 VOC_KMEANS_PATH = f"datasets/voc_kmeans-cluster_num_{CLUSTER_NUM}.pkl"
 VOC_DATASET_PREPARE_PATH = "datasets/voc_dataset_prepare.pkl"
@@ -35,10 +35,12 @@ try:
     voc_kmeans = Voc_Kmeans(dataset_train, load_path=VOC_KMEANS_PATH)
 except:
     voc_kmeans = Voc_Kmeans(dataset_train, cluster_num=CLUSTER_NUM)
+    voc_kmeans.save(VOC_KMEANS_PATH)
 try:
     voc_dataset_prepare = Voc_Dataset_Prepare(dataset_train, load_path=VOC_DATASET_PREPARE_PATH)
 except:
     voc_dataset_prepare = Voc_Dataset_Prepare(dataset_train)
+    voc_dataset_prepare.save(VOC_DATASET_PREPARE_PATH)
 
 voc_utils = VOC_Utils(voc_kmeans, voc_dataset_prepare, ANCHOR_NUM)
 
