@@ -161,6 +161,7 @@ class VOC_Utils:
         self.voc_kmeans.sort()
         self.anchor_list = self.voc_kmeans.cluster_list
         self.anchor_num = anchor_num
+        self.classes_num = self.voc_dataset_prepare.classes_num
         
     def get_max_iou_arg(self, bbox, anchor):
         bbox_area = bbox[2] * bbox[3]
@@ -210,13 +211,57 @@ class VOC_Utils:
         
         return (img_size, bbox, classes)
     
+    def encode_yolo3_output(self, yolo3_output, normlize=True):
+        encoded_list = []
+        (C, _, _) = yolo3_output[0].shape
+        assert C % self.anchor_num == 0
+        split_num = C // self.anchor_num
+
+        anchor_index = 0
+        for feature_map in yolo3_output:
+            (C, H, W) = feature_map.shape
+            dev = feature_map.device
+            tmp = torch.zeros(C, H, W).to(dev)
+            x_bias_index = torch.arange(0, 1, 1.0/W).view(1, -1).to(dev)
+            y_bias_index = torch.arange(0, 1, 1.0/H).view(-1, 1).to(dev)
+            for i in range(self.anchor_num):
+                (anchor_h, anchor_w) = self.anchor_list[anchor_index]
+                start_ptr = i * split_num
+                (x_center, y_center) = feature_map[start_ptr + 0:start_ptr + 2, :, :]
+                (w, h) = feature_map[start_ptr + 2:start_ptr + 4, :, :]
+                has_obj = feature_map[start_ptr + 4, :, :]
+                classes = feature_map[start_ptr + 5:start_ptr + 5 + self.voc_dataset_prepare.classes_num, :, :]
+                if normlize:
+                    x_center = x_center.sigmoid()
+                    y_center = y_center.sigmoid()
+                    w = w.sigmoid()
+                    h = h.sigmoid()
+                    has_obj = has_obj.sigmoid()
+                    classes = classes.softmax(dim=0)
+
+                x_center = x_center + x_bias_index
+                y_center = y_center + y_bias_index
+                w = w * anchor_w
+                h = h * anchor_h
+                anchor_index += 1
+
+                tmp[start_ptr + 0, :, :] = x_center
+                tmp[start_ptr + 1, :, :] = y_center
+                tmp[start_ptr + 2, :, :] = w
+                tmp[start_ptr + 3, :, :] = h
+                tmp[start_ptr + 4, :, :] = has_obj
+                tmp[start_ptr + 5:start_ptr + 5 + self.voc_dataset_prepare.classes_num, :, :] = classes
+
+            encoded_list.append(tmp)
+        return encoded_list
+    
     def label2tensor(self, label, feature_map_size, feature_map_level):
         (feature_h, feature_w) = feature_map_size
         anchor_num = self.anchor_num
         classes_num = self.voc_dataset_prepare.classes_num
         (img_size, bbox_list, classes_list) = self.decode_label(label)
         anchor_dim = 5 + classes_num
-        output = torch.zeros((feature_h, feature_w, anchor_num * anchor_dim), dtype=torch.float)
+        output = torch.zeros((anchor_num * anchor_dim, feature_h, feature_w), dtype=torch.float)
 
         for (bbox, classes) in zip(bbox_list, classes_list):
             max_iou_arg = self.get_max_iou_arg(bbox, self.anchor_list)
@@ -235,11 +280,17 @@ class VOC_Utils:
                 feature_map_index_w = int(feature_map_index_w_float)
                 anchor_index_start = (max_iou_arg % anchor_num) * anchor_dim
 
-                output[feature_map_index_h, feature_map_index_w, anchor_index_start + 0] = feature_map_index_w_float - feature_map_index_w
-                output[feature_map_index_h, feature_map_index_w, anchor_index_start + 1] = feature_map_index_h_float - feature_map_index_h
-                output[feature_map_index_h, feature_map_index_w, anchor_index_start + 2] = math.log(bbox_w / anchor_w)
-                output[feature_map_index_h, feature_map_index_w, anchor_index_start + 3] = math.log(bbox_h / anchor_h)
-                output[feature_map_index_h, feature_map_index_w, anchor_index_start + 4] = 1
-                output[feature_map_index_h, feature_map_index_w, anchor_index_start + 5 : anchor_index_start + 5 + classes_num] = classes
+                output[anchor_index_start + 0, feature_map_index_h, feature_map_index_w] = feature_map_index_w_float - feature_map_index_w
+                output[anchor_index_start + 1, feature_map_index_h, feature_map_index_w] = feature_map_index_h_float - feature_map_index_h
+                output[anchor_index_start + 2, feature_map_index_h, feature_map_index_w] = bbox_w
+                output[anchor_index_start + 3, feature_map_index_h, feature_map_index_w] = bbox_h
+                output[anchor_index_start + 4, feature_map_index_h, feature_map_index_w] = 1
+                output[anchor_index_start + 5 : anchor_index_start + 5 + classes_num, feature_map_index_h, feature_map_index_w] = classes
 
         return output
+
+def collate_fn(batch):
+    x = torch.stack([i[0] for i in batch], dim=0)
+    y = [i[1] for i in batch]
+    return (x, y)
+

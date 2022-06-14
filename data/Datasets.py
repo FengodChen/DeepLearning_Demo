@@ -66,7 +66,7 @@ class Voc_Dataset(Dataset):
         x = self.ds[index][0]
         y = self.ds[index][1]
         return (x, y)
-
+    
 class Coco_Dataset(Dataset):
     def __init__(self, img_dir, ann_path, resize) -> None:
         super().__init__()

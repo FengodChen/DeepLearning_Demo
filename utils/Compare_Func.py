@@ -7,3 +7,6 @@ def cifar10_compare_func(y_pred, y):
     true_ans = true_ans[true_ans == 0]
     acc = len(true_ans) / len(y_)
     return acc
+
+def void_compare_func(y_pred, y):
+    return 0

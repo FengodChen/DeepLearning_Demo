@@ -112,7 +112,13 @@ class YoloBlock(nn.Module):
         x_256 = self.f_256_connect_darknet_block(x_256)
         feature_map_256 = self.f_256_feature_map_block(x_256)
 
-        return (feature_map_256, feature_map_512, feature_map_1024)
+        y = [feature_map_256, feature_map_512, feature_map_1024]
+        for y_i in y:
+            y_i[:, 0:2, :, :] = y_i[:, 0:2, :, :].sigmoid()
+            y_i[:, 4, :, :] = y_i[:, 4, :, :].sigmoid()
+            y_i[:, 5:, :, :] = y_i[:, 5:, :, :].softmax(dim=1)
+
+        return y
 
     def make_connect_darknet_block(self, in_channel, out_channel):
         block = nn.Sequential(

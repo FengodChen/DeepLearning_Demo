@@ -9,13 +9,16 @@ class Trainer():
         self.checkpoint_epoch = checkpoint_epoch
         self.logger = logger
     
+    def to_dev(self, x, y):
+        x = x.to(self.dev)
+        y = y.to(self.dev)
+    
     def iterate_dataset(self, dataloader, compare_func, backward, epoch=None):
         pbar = tqdm(range(len(dataloader.dataset)), leave=True)
         total_loss = 0.0
         total_acc = 0.0
         for (x, y) in dataloader:
-            x = x.to(self.dev)
-            y = y.to(self.dev)
+            (x, y) = self.to_dev(x, y)
             y_pred = self.net(x)
             loss = self.loss(y_pred, y)
             acc = compare_func(y_pred, y)
@@ -72,3 +75,11 @@ class Trainer():
             if (epoch % self.checkpoint_epoch == 0):
                 self.logger.save()
             
+class YOLO3_Trainer(Trainer):
+    def __init__(self, net, loss, opt, dev, logger, checkpoint_epoch):
+        super().__init__(net, loss, opt, dev, logger, checkpoint_epoch)
+    
+    def to_dev(self, x, y):
+        x = x.to(self.dev)
+        y = y
+        return (x, y)
