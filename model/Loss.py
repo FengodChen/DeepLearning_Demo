@@ -21,8 +21,8 @@ class YOLO3_Loss(nn.Module):
                 feature_map_size = (H, W)
                 dataset_true.append(self.dataset_utils.label2tensor(y_true[batch_i], feature_map_size, feature_level).to(feature_map.device))
 
-            yolo3_pred = self.dataset_utils.encode_yolo3_output(yolo3_pred)
-            dataset_true = self.dataset_utils.encode_yolo3_output(dataset_true, normlize=False)
+            yolo3_pred = self.dataset_utils.encode_to_tensor(yolo3_pred, encode_type="yolo3_output")
+            dataset_true = self.dataset_utils.encode_to_tensor(dataset_true, encode_type="label")
 
             for (feature_map_true, feature_map_pred) in zip(dataset_true, yolo3_pred):
                 loss_sum += self.get_feature_map_loss(feature_map_true, feature_map_pred)
@@ -44,6 +44,8 @@ class YOLO3_Loss(nn.Module):
     
     def get_splited_feature_map_loss(self, feature_map_true, feature_map_pred):
         loss = 0.0
+        (C, H, W) = feature_map_true.shape
+        d = H * W
         has_obj_ptr = torch.where(feature_map_true[4, :, :] >= 0.9)
         no_obj_ptr = torch.where(feature_map_true[4, :, :] <= 0.1)
 
@@ -55,15 +57,15 @@ class YOLO3_Loss(nn.Module):
             classes_p = feature_map_pred[5:].permute(1, 2, 0)[has_obj_ptr]
             classes_t = feature_map_true[5:].permute(1, 2, 0)[has_obj_ptr]
 
-            loss += self.lambda_coord * ((x_p - x_t)**2 + (y_p - y_t)**2).sum()
-            loss += self.lambda_coord * ((h_p**0.5 - h_t**0.5)**2 + (w_p**0.5 - w_t**0.5)**2).sum()
-            loss += self.bce_loss(obj_p, obj_t)
-            loss += self.bce_loss(classes_p, classes_t)
+            loss += self.lambda_coord * ((x_p - x_t)**2 + (y_p - y_t)**2).sum() / d
+            loss += self.lambda_coord * ((h_p**0.5 - h_t**0.5)**2 + (w_p**0.5 - w_t**0.5)**2).sum() / d
+            loss += self.bce_loss(obj_p, obj_t) / d
+            loss += self.bce_loss(classes_p, classes_t) / d
 
         if (len(no_obj_ptr[0]) > 0):
             noobj_p = feature_map_pred[4][no_obj_ptr]
             noobj_t = feature_map_true[4][no_obj_ptr]
-            loss += self.lambda_noobj * self.bce_loss(noobj_p, noobj_t)
+            loss += self.lambda_noobj * self.bce_loss(noobj_p, noobj_t) / d
         
         return loss
 

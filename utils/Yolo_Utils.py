@@ -1,5 +1,6 @@
 import pickle
 from torch.utils.data.dataloader import DataLoader
+import torchvision
 import torch
 import random
 import math
@@ -143,6 +144,11 @@ class Voc_Dataset_Prepare:
 
         return onehot
     
+    def label_onehot2name(self, onehot):
+        onehot = onehot.view(-1)
+        num = int(torch.argmax(onehot))
+        return self.label_name[num]
+    
     def load(self, file_path):
         with open(file_path, "rb") as f:
             self.label_name = pickle.load(f)
@@ -152,11 +158,13 @@ class Voc_Dataset_Prepare:
             pickle.dump(self.label_name, f)
 
 class VOC_Utils:
-    def __init__(self, voc_kmeans:Voc_Kmeans, voc_dataset_prepare:Voc_Dataset_Prepare, anchor_num:int):
+    def __init__(self, img_size, voc_kmeans:Voc_Kmeans, voc_dataset_prepare:Voc_Dataset_Prepare, anchor_num:int):
         assert len(voc_kmeans.cluster_list) % anchor_num == 0
 
         self.voc_kmeans = voc_kmeans
         self.voc_dataset_prepare = voc_dataset_prepare
+
+        (self.img_h, self.img_w) = self.img_size = img_size
 
         self.voc_kmeans.sort()
         self.anchor_list = self.voc_kmeans.cluster_list
@@ -211,7 +219,8 @@ class VOC_Utils:
         
         return (img_size, bbox, classes)
     
-    def encode_yolo3_output(self, yolo3_output, normlize=True):
+    def encode_to_tensor(self, yolo3_output, encode_type):
+        assert encode_type in ["label", "yolo3_output"]
         encoded_list = []
         (C, _, _) = yolo3_output[0].shape
         assert C % self.anchor_num == 0
@@ -231,18 +240,22 @@ class VOC_Utils:
                 (w, h) = feature_map[start_ptr + 2:start_ptr + 4, :, :]
                 has_obj = feature_map[start_ptr + 4, :, :]
                 classes = feature_map[start_ptr + 5:start_ptr + 5 + self.voc_dataset_prepare.classes_num, :, :]
-                if normlize:
+                if encode_type == "yolo3_output":
                     x_center = x_center.sigmoid()
                     y_center = y_center.sigmoid()
-                    w = w.sigmoid()
-                    h = h.sigmoid()
+                    w = w
+                    h = h
                     has_obj = has_obj.sigmoid()
                     classes = classes.softmax(dim=0)
 
-                x_center = x_center + x_bias_index
-                y_center = y_center + y_bias_index
-                w = w * anchor_w
-                h = h * anchor_h
+                x_center = (x_center / W + x_bias_index) * self.img_w
+                y_center = (y_center / H + y_bias_index) * self.img_h
+                if encode_type == "label":
+                    w = w * self.img_w
+                    h = h * self.img_h
+                elif encode_type == "yolo3_output":
+                    w = torch.exp(w) * anchor_w * self.img_w
+                    h = torch.exp(h) * anchor_h * self.img_h
                 anchor_index += 1
 
                 tmp[start_ptr + 0, :, :] = x_center
@@ -271,7 +284,6 @@ class VOC_Utils:
 
                 # Get index
                 [bbox_x, bbox_y, bbox_h, bbox_w] = bbox
-                [anchor_h, anchor_w] = anchor
 
                 feature_map_index_h_float = bbox_y * feature_h
                 feature_map_index_w_float = bbox_x * feature_w
@@ -288,6 +300,54 @@ class VOC_Utils:
                 output[anchor_index_start + 5 : anchor_index_start + 5 + classes_num, feature_map_index_h, feature_map_index_w] = classes
 
         return output
+    
+    def decode_tensor(self, yolo3_output, decode_type, has_obj_thread):
+        assert self.anchor_num % len(yolo3_output) == 0
+
+        bbox_list = []
+        label_list = []
+
+        encoded_yolo3_output = self.encode_to_tensor(yolo3_output, encode_type=decode_type)
+        dim_per_anchor = 5 + self.classes_num
+        for feature_map in encoded_yolo3_output:
+            for anchor_i in range(self.anchor_num):
+                start_ptr = anchor_i * dim_per_anchor
+                end_ptr = start_ptr + dim_per_anchor
+                map_ptr = torch.where(feature_map[start_ptr+4, :, :] > has_obj_thread)
+                anchors = feature_map.permute(1, 2, 0)[map_ptr][:, start_ptr:end_ptr]
+                for anchor in anchors:
+                    (x_center, y_center, w, h) = anchor[0:4]
+                    classes = anchor[5:]
+
+                    w = float(w)
+                    h = float(h)
+                    x_center = float(x_center)
+                    y_center = float(y_center)
+
+                    x_min = int(x_center - w//2)
+                    x_max = int(x_center + w//2)
+                    y_min = int(y_center - h//2)
+                    y_max = int(y_center + h//2)
+
+                    classes = self.voc_dataset_prepare.label_onehot2name(classes)
+
+                    bbox_list.append([x_min, y_min, x_max, y_max])
+                    label_list.append(classes)
+        
+        return (bbox_list, label_list)
+
+    
+    def draw_bbox(self, img, yolo3_predict, decode_type, has_obj_thread):
+        yolo3_output = []
+        for b in yolo3_predict:
+            (B, _, _, _) = b.shape
+            assert B == 1
+            yolo3_output.append(b[0])
+        (bbox_list, label_list) = self.decode_tensor(yolo3_output, decode_type, has_obj_thread)
+        bbox_list = torch.tensor(bbox_list)
+        drawed_img = torchvision.utils.draw_bounding_boxes(img, bbox_list, label_list, fill=True)
+        return drawed_img
+
 
 def collate_fn(batch):
     x = torch.stack([i[0] for i in batch], dim=0)
