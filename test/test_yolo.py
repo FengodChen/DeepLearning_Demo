@@ -33,6 +33,9 @@ dataloader_val = DataLoader(dataset_val, batch_size=BATCH_SIZE, shuffle=True, co
 #dataset_test = Voc_Dataset(root_dir="datasets", year="2007", resize=IMG_SIZE, image_set="test")
 #dataloader_test = DataLoader(dataset_test, batch_size=64, shuffle=True, collate_fn=collate_fn)
 
+dataset_train_show = Voc_Dataset(root_dir="datasets", year="2007", resize=IMG_SIZE, image_set="train", for_show=True)
+dataset_val_show = Voc_Dataset(root_dir="datasets", year="2007", resize=IMG_SIZE, image_set="val", for_show=True)
+
 try:
     voc_kmeans = Voc_Kmeans(dataset_train, load_path=VOC_KMEANS_PATH)
 except:
@@ -67,10 +70,12 @@ opt = torch.optim.Adam(net.parameters(), lr=3e-4)
 trainer = YOLO3_Trainer(net, loss, opt, dev, logger, 10)
 #trainer.train(dataloader_train, dataloader_val, void_compare_func, 10, 500)
 
-for (x, y_) in dataset_val:
+for (d, d_show) in zip(dataset_val, dataset_val_show):
+    (x, y_) = d
+    (x_show, _) = d_show
+
     x = x.unsqueeze(0)
     y = net(x)
-    x = x[0]
 
     y_true = []
 
@@ -79,7 +84,7 @@ for (x, y_) in dataset_val:
         (C, H, W) = feature_map.shape
         y_true.append(voc_utils.label2tensor(y_, (H, W), feature_level).unsqueeze(0))
 
-    x = (x * 255).to(torch.uint8)
+    x = (x_show * 255).to(torch.uint8)
 
     y_true_draw = voc_utils.draw_bbox(x, y_true, "label", 0.5)
     #y_pred_draw = voc_utils.draw_bbox(x, y, "yolo3_output", 0.5)

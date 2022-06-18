@@ -48,15 +48,21 @@ def mnist_dataset(root_dir, download=False):
     return ds
 
 class Voc_Dataset(Dataset):
-    def __init__(self, root_dir, year, resize, image_set="train", download=False) -> None:
+    def __init__(self, root_dir, year, resize, image_set="train", download=False, for_show=False) -> None:
         super().__init__()
         assert image_set in ["train", "val", "test"]
-        transform = transforms.Compose([
-            transforms.Resize(resize),
-            transforms.ToTensor(),
-            transforms.GaussianBlur(3),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        ])
+        if for_show:
+            transform = transforms.Compose([
+                transforms.Resize(resize),
+                transforms.ToTensor(),
+            ])
+        else:
+            transform = transforms.Compose([
+                transforms.Resize(resize),
+                transforms.ToTensor(),
+                transforms.GaussianBlur(3),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            ])
         self.ds = voc.VOCDetection(root=root_dir, year=year, image_set=image_set, download=download, transform=transform)
     
     def __len__(self):
