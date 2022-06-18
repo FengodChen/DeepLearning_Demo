@@ -219,7 +219,7 @@ class VOC_Utils:
         
         return (img_size, bbox, classes)
     
-    def encode_to_tensor(self, yolo3_output, encode_type):
+    def encode_to_tensor(self, yolo3_output, encode_type, normalize=False):
         assert encode_type in ["label", "yolo3_output"]
         encoded_list = []
         (C, _, _) = yolo3_output[0].shape
@@ -257,6 +257,12 @@ class VOC_Utils:
                     w = torch.exp(w) * anchor_w * self.img_w
                     h = torch.exp(h) * anchor_h * self.img_h
                 anchor_index += 1
+
+                if normalize:
+                    x_center = x_center / self.img_w
+                    y_center = y_center / self.img_h
+                    w = w / self.img_w
+                    h = h / self.img_h
 
                 tmp[start_ptr + 0, :, :] = x_center
                 tmp[start_ptr + 1, :, :] = y_center

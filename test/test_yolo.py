@@ -68,7 +68,7 @@ loss = YOLO3_Loss(voc_utils, lambda_coord=LAMBDA_COORD, lambda_noobj=LAMBDA_NOOB
 opt = torch.optim.Adam(net.parameters(), lr=3e-4)
 
 trainer = YOLO3_Trainer(net, loss, opt, dev, logger, 10)
-#trainer.train(dataloader_train, dataloader_val, void_compare_func, 10, 500)
+trainer.train(dataloader_train, dataloader_val, void_compare_func, 10, 500)
 
 for (d, d_show) in zip(dataset_val, dataset_val_show):
     (x, y_) = d
@@ -87,10 +87,10 @@ for (d, d_show) in zip(dataset_val, dataset_val_show):
     x = (x_show * 255).to(torch.uint8)
 
     y_true_draw = voc_utils.draw_bbox(x, y_true, "label", 0.5)
-    #y_pred_draw = voc_utils.draw_bbox(x, y, "yolo3_output", 0.5)
+    y_pred_draw = voc_utils.draw_bbox(x, y, "yolo3_output", 0.5)
 
     x = x.permute(1, 2, 0).detach().cpu().numpy()
-    #y_pred_draw = y_pred_draw.permute(1, 2, 0).detach().cpu().numpy()
+    y_pred_draw = y_pred_draw.permute(1, 2, 0).detach().cpu().numpy()
     y_true_draw = y_true_draw.permute(1, 2, 0).detach().cpu().numpy()
 
     plt.figure(figsize=(24, 12))
@@ -103,8 +103,8 @@ for (d, d_show) in zip(dataset_val, dataset_val_show):
     plt.imshow(y_true_draw)
     plt.title("y true")
 
-    #plt.subplot(1, 3, 3)
-    #plt.imshow(y_pred_draw)
-    #plt.title("y pred")
+    plt.subplot(1, 3, 3)
+    plt.imshow(y_pred_draw)
+    plt.title("y pred")
 
     plt.show()
