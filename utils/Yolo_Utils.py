@@ -291,7 +291,8 @@ class VOC_Utils:
         batch_size = y[0].shape[0]
         for batch_i in range(batch_size):
             l = []
-            for batch_feature_map in y:
+            for batch_feature_i in range(len(y)):
+                batch_feature_map = y[batch_feature_i]
                 l.append(batch_feature_map[batch_i])
             ll = self.encode_to_tensor(l, "yolo3_output", normalize=True)
             for i in range(len(l)):
@@ -347,13 +348,15 @@ class VOC_Utils:
 
         encoded_yolo3_output = self.encode_to_tensor(yolo3_output, encode_type=decode_type)
         dim_per_anchor = 5 + self.classes_num
-        for feature_map in encoded_yolo3_output:
+        for feature_map_i in range(len(encoded_yolo3_output)):
+            feature_map = encoded_yolo3_output[feature_map_i]
             for anchor_i in range(self.anchor_num):
                 start_ptr = anchor_i * dim_per_anchor
                 end_ptr = start_ptr + dim_per_anchor
                 map_ptr = torch.where(feature_map[start_ptr+4, :, :] > has_obj_thread)
                 anchors = feature_map.permute(1, 2, 0)[map_ptr][:, start_ptr:end_ptr]
-                for anchor in anchors:
+                for anchor_i in range(len(anchors)):
+                    anchor = anchors[anchor_i]
                     (x_center, y_center, w, h) = anchor[0:4]
                     classes = anchor[5:]
 

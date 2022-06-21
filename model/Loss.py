@@ -14,10 +14,12 @@ class YOLO3_Loss(nn.Module):
         batch_size = y_pred[0].shape[0]
 
         for batch_i in range(batch_size):
-            yolo3_pred = [b[batch_i] for b in y_pred]
-            dataset_true = [b[batch_i] for b in y_true]
+            yolo3_pred = [y_pred[feature_i][batch_i] for feature_i in range(len(y_pred))]
+            dataset_true = [y_true[feature_i][batch_i] for feature_i in range(len(y_true))]
 
-            for (feature_map_true, feature_map_pred) in zip(dataset_true, yolo3_pred):
+            for i in range(len(dataset_true)):
+                feature_map_true = dataset_true[i]
+                feature_map_pred = yolo3_pred[i]
                 loss_sum += self.get_feature_map_loss(feature_map_true, feature_map_pred)
         
         return loss_sum / (batch_i+1)

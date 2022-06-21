@@ -84,6 +84,6 @@ class YOLO3_Trainer(Trainer):
         x = d[0]
         y = d[1:]
         x = x.to(self.dev)
-        for i in y:
-            i = i.to(self.dev)
+        for i in range(len(y)):
+            y[i] = y[i].to(self.dev)
         return (x, y)

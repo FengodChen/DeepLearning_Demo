@@ -27,11 +27,11 @@ LAMBDA_COORD = 10
 LAMBDA_NOOBJ = 1
 
 dataset_train = Voc_Dataset(root_dir="datasets", year="2007", resize=IMG_SIZE, image_set="train")
-dataloader_train = DataLoader(dataset_train, batch_size=BATCH_SIZE, shuffle=True)
+dataloader_train = DataLoader(dataset_train, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 dataset_val = Voc_Dataset(root_dir="datasets", year="2007", resize=IMG_SIZE, image_set="val")
-dataloader_val = DataLoader(dataset_val, batch_size=BATCH_SIZE, shuffle=True)
+dataloader_val = DataLoader(dataset_val, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 #dataset_test = Voc_Dataset(root_dir="datasets", year="2007", resize=IMG_SIZE, image_set="test")
-#dataloader_test = DataLoader(dataset_test, batch_size=64, shuffle=True)
+#dataloader_test = DataLoader(dataset_test, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 
 dataset_train_show = Voc_Dataset(root_dir="datasets", year="2007", resize=IMG_SIZE, image_set="train", for_show=True)
 dataset_val_show = Voc_Dataset(root_dir="datasets", year="2007", resize=IMG_SIZE, image_set="val", for_show=True)
@@ -70,6 +70,9 @@ opt = torch.optim.Adam(net.parameters(), lr=3e-4)
 
 trainer = YOLO3_Trainer(net, loss, opt, dev, logger, 10)
 trainer.train(dataloader_train, dataloader_val, void_compare_func, 10, 500)
+
+logger.plot_log("train", "show")
+logger.plot_log("eval", "show")
 
 for (d, d_show) in zip(dataset_val, dataset_val_show):
     (x, y_) = d
