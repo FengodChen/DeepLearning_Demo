@@ -64,6 +64,7 @@ class Voc_Dataset(Dataset):
                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
             ])
         self.ds = voc.VOCDetection(root=root_dir, year=year, image_set=image_set, download=download, transform=transform)
+        self.voc_util = None
     
     def __len__(self):
         return len(self.ds)
@@ -71,7 +72,15 @@ class Voc_Dataset(Dataset):
     def __getitem__(self, index):
         x = self.ds[index][0]
         y = self.ds[index][1]
-        return (x, y)
+        if self.voc_util is not None:
+            y = self.voc_util.label2tensor(y)
+            y = self.voc_util.encode_to_tensor(y, "label", normalize=True)
+            return [x] + [i for i in y]
+        else:
+            return [x, y]
+    
+    def set_voc_util(self, voc_util):
+        self.voc_util = voc_util
     
 class Coco_Dataset(Dataset):
     def __init__(self, img_dir, ann_path, resize) -> None:

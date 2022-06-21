@@ -158,7 +158,7 @@ class Voc_Dataset_Prepare:
             pickle.dump(self.label_name, f)
 
 class VOC_Utils:
-    def __init__(self, img_size, voc_kmeans:Voc_Kmeans, voc_dataset_prepare:Voc_Dataset_Prepare, anchor_num:int):
+    def __init__(self, img_size, voc_kmeans:Voc_Kmeans, voc_dataset_prepare:Voc_Dataset_Prepare, net, anchor_num:int, dev, img_channel=3):
         assert len(voc_kmeans.cluster_list) % anchor_num == 0
 
         self.voc_kmeans = voc_kmeans
@@ -170,6 +170,20 @@ class VOC_Utils:
         self.anchor_list = self.voc_kmeans.cluster_list
         self.anchor_num = anchor_num
         self.classes_num = self.voc_dataset_prepare.classes_num
+        self.img_channel = img_channel
+        self.net = net
+        self.feature_map_size_list = []
+        self.dev = dev
+
+        self.__init_feature_map_list__()
+    
+    def __init_feature_map_list__(self):
+        dev = self.dev
+        x = torch.rand((1, self.img_channel, self.img_h, self.img_w), device=dev)
+        feature_map_list = self.net(x)
+        for feature_map in feature_map_list:
+            (B, C, H, W) = feature_map.shape
+            self.feature_map_size_list.append((C, H, W))
         
     def get_max_iou_arg(self, bbox, anchor):
         bbox_area = bbox[2] * bbox[3]
@@ -221,16 +235,16 @@ class VOC_Utils:
     
     def encode_to_tensor(self, yolo3_output, encode_type, normalize=False):
         assert encode_type in ["label", "yolo3_output"]
-        encoded_list = []
         (C, _, _) = yolo3_output[0].shape
         assert C % self.anchor_num == 0
         split_num = C // self.anchor_num
 
+        feature_level_len = len(yolo3_output)
         anchor_index = 0
-        for feature_map in yolo3_output:
+        for feature_level in range(feature_level_len):
+            feature_map = yolo3_output[feature_level]
             (C, H, W) = feature_map.shape
             dev = feature_map.device
-            tmp = torch.zeros(C, H, W).to(dev)
             x_bias_index = torch.arange(0, 1, 1.0/W).view(1, -1).to(dev)
             y_bias_index = torch.arange(0, 1, 1.0/H).view(-1, 1).to(dev)
             for i in range(self.anchor_num):
@@ -264,17 +278,27 @@ class VOC_Utils:
                     w = w / self.img_w
                     h = h / self.img_h
 
-                tmp[start_ptr + 0, :, :] = x_center
-                tmp[start_ptr + 1, :, :] = y_center
-                tmp[start_ptr + 2, :, :] = w
-                tmp[start_ptr + 3, :, :] = h
-                tmp[start_ptr + 4, :, :] = has_obj
-                tmp[start_ptr + 5:start_ptr + 5 + self.voc_dataset_prepare.classes_num, :, :] = classes
+                feature_map[start_ptr + 0, :, :] = x_center
+                feature_map[start_ptr + 1, :, :] = y_center
+                feature_map[start_ptr + 2, :, :] = w
+                feature_map[start_ptr + 3, :, :] = h
+                feature_map[start_ptr + 4, :, :] = has_obj
+                feature_map[start_ptr + 5:start_ptr + 5 + self.voc_dataset_prepare.classes_num, :, :] = classes
 
-            encoded_list.append(tmp)
-        return encoded_list
+        return yolo3_output
     
-    def label2tensor(self, label, feature_map_size, feature_map_level):
+    def yolo3_encode_to_tensor(self, y):
+        batch_size = y[0].shape[0]
+        for batch_i in range(batch_size):
+            l = []
+            for batch_feature_map in y:
+                l.append(batch_feature_map[batch_i])
+            ll = self.encode_to_tensor(l, "yolo3_output", normalize=True)
+            for i in range(len(l)):
+                l[i][:] = ll[i][:]
+        return y
+    
+    def label2tensor_per_level(self, label, feature_map_size, feature_map_level):
         (feature_h, feature_w) = feature_map_size
         anchor_num = self.anchor_num
         classes_num = self.voc_dataset_prepare.classes_num
@@ -306,6 +330,14 @@ class VOC_Utils:
                 output[anchor_index_start + 5 : anchor_index_start + 5 + classes_num, feature_map_index_h, feature_map_index_w] = classes
 
         return output
+    
+    def label2tensor(self, label):
+        y = []
+        for (feature_map_level, feature_map_shape) in enumerate(self.feature_map_size_list):
+            (C, H, W) = feature_map_shape
+            y.append(self.label2tensor_per_level(label, (H, W), feature_map_level))
+        return y
+
     
     def decode_tensor(self, yolo3_output, decode_type, has_obj_thread):
         assert self.anchor_num % len(yolo3_output) == 0

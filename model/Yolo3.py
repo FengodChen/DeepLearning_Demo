@@ -145,14 +145,19 @@ class YoloBlock(nn.Module):
         return block
 
 class Yolo3(nn.Module):
-    def __init__(self, in_channel, classes_num, anchor_num, gpu_num):
+    def __init__(self, in_channel, classes_num, anchor_num):
         super().__init__()
-        self.gpu_num = gpu_num
         self.yolo3 = nn.Sequential(
             Darknet53(in_channel),
             YoloBlock(classes_num=classes_num, anchor_num=anchor_num)
         )
+        self.func = None
     
     def forward(self, x):
-        x = nn.parallel.data_parallel(self.yolo3, x, range(self.gpu_num)) if self.gpu_num > 1 else self.yolo3(x)
+        x = self.yolo3(x)
+        if self.func is not None:
+            x = self.func(x)
         return x
+    
+    def set_end_func(self, func):
+        self.func = func

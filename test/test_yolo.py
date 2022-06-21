@@ -19,7 +19,7 @@ seed_everything(21120009)
 BATCH_SIZE = 4
 CLUSTER_NUM = 9
 ANCHOR_NUM = 3
-GPU_NUM = 0
+GPU_NUM = -1
 IMG_SIZE = (224, 224)
 VOC_KMEANS_PATH = f"datasets/voc_kmeans-cluster_num_{CLUSTER_NUM}.pkl"
 VOC_DATASET_PREPARE_PATH = "datasets/voc_dataset_prepare.pkl"
@@ -27,11 +27,11 @@ LAMBDA_COORD = 10
 LAMBDA_NOOBJ = 1
 
 dataset_train = Voc_Dataset(root_dir="datasets", year="2007", resize=IMG_SIZE, image_set="train")
-dataloader_train = DataLoader(dataset_train, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_fn)
+dataloader_train = DataLoader(dataset_train, batch_size=BATCH_SIZE, shuffle=True)
 dataset_val = Voc_Dataset(root_dir="datasets", year="2007", resize=IMG_SIZE, image_set="val")
-dataloader_val = DataLoader(dataset_val, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_fn)
+dataloader_val = DataLoader(dataset_val, batch_size=BATCH_SIZE, shuffle=True)
 #dataset_test = Voc_Dataset(root_dir="datasets", year="2007", resize=IMG_SIZE, image_set="test")
-#dataloader_test = DataLoader(dataset_test, batch_size=64, shuffle=True, collate_fn=collate_fn)
+#dataloader_test = DataLoader(dataset_test, batch_size=64, shuffle=True)
 
 dataset_train_show = Voc_Dataset(root_dir="datasets", year="2007", resize=IMG_SIZE, image_set="train", for_show=True)
 dataset_val_show = Voc_Dataset(root_dir="datasets", year="2007", resize=IMG_SIZE, image_set="val", for_show=True)
@@ -47,21 +47,22 @@ except:
     voc_dataset_prepare = Voc_Dataset_Prepare(dataset_train)
     voc_dataset_prepare.save(VOC_DATASET_PREPARE_PATH)
 
-voc_utils = VOC_Utils(IMG_SIZE, voc_kmeans, voc_dataset_prepare, ANCHOR_NUM)
 
 CLASSES_NUM = len(voc_dataset_prepare.label_name)
 
-if GPU_NUM == 0:
-    dev = torch.device("cpu")
-    net = Yolo3(in_channel=3, classes_num=CLASSES_NUM, anchor_num=ANCHOR_NUM, gpu_num=GPU_NUM).to(dev)
-elif GPU_NUM == 1:
-    dev = torch.device("cuda")
-    net = Yolo3(in_channel=3, classes_num=CLASSES_NUM, anchor_num=ANCHOR_NUM, gpu_num=GPU_NUM).to(dev)
-elif GPU_NUM > 1:
-    dev = torch.device("cuda")
-    net = Yolo3(in_channel=3, classes_num=CLASSES_NUM, anchor_num=ANCHOR_NUM, gpu_num=GPU_NUM)
-    net = torch.nn.DataParallel(net).to(dev)
+dev = torch.device("cpu") if GPU_NUM < 0 else torch.device(f"cuda:{GPU_NUM}")
+net = Yolo3(in_channel=3, classes_num=CLASSES_NUM, anchor_num=ANCHOR_NUM).to(dev)
 
+voc_utils = VOC_Utils(IMG_SIZE, voc_kmeans, voc_dataset_prepare, net, ANCHOR_NUM, dev)
+
+dataset_train.set_voc_util(voc_utils)
+dataset_val.set_voc_util(voc_utils)
+dataset_train_show.set_voc_util(voc_utils)
+dataset_val_show.set_voc_util(voc_utils)
+#dataset_test.set_voc_util(voc_utils)
+#dataset_test_show.set_voc_util(voc_utils)
+
+net.set_end_func(voc_utils.yolo3_encode_to_tensor)
 
 logger = Logger("save/yolo3", net, load_newest=True)
 loss = YOLO3_Loss(voc_utils, lambda_coord=LAMBDA_COORD, lambda_noobj=LAMBDA_NOOBJ)
