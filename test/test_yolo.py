@@ -75,18 +75,13 @@ logger.plot_log("train", "show")
 logger.plot_log("eval", "show")
 
 for (d, d_show) in zip(dataset_val, dataset_val_show):
-    (x, y_) = d
-    (x_show, _) = d_show
+    x = d[0]
+    y_true = d[1:]
+    x_show = d_show[0]
 
     x = x.unsqueeze(0)
     y = net(x)
-
-    y_true = []
-
-    for (feature_level, feature_map) in enumerate(y):
-        feature_map = feature_map[0]
-        (C, H, W) = feature_map.shape
-        y_true.append(voc_utils.label2tensor(y_, (H, W), feature_level).unsqueeze(0))
+    y_true = [i.unsqueeze(0) for i in y_true]
 
     x = (x_show * 255).to(torch.uint8)
 
