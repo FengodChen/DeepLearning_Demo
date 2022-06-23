@@ -57,6 +57,7 @@ class Trainer():
 
     def train(self, train_dataloader, eval_dataloader, compare_func, eval_epochs, epochs):
         assert self.logger.get_epoch() <= epochs
+        assert eval_epochs <= self.checkpoint_epoch
         for epoch in range(self.logger.get_epoch() + 1, epochs + 1):
             self.net.train()
             (train_total_loss, train_total_acc) = self.iterate_dataset(train_dataloader, compare_func, backward=True, epoch=epoch)    

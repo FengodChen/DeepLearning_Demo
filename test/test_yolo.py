@@ -85,8 +85,8 @@ for (d, d_show) in zip(dataset_val, dataset_val_show):
 
     x = (x_show * 255).to(torch.uint8)
 
-    y_true_draw = voc_utils.draw_bbox(x, y_true, 0.5)
-    y_pred_draw = voc_utils.draw_bbox(x, y, 0.5)
+    y_true_draw = voc_utils.draw_bbox(x, y_true, 0.9)
+    y_pred_draw = voc_utils.draw_bbox(x, y, 0.9)
 
     x = x.permute(1, 2, 0).detach().cpu().numpy()
     y_pred_draw = y_pred_draw.permute(1, 2, 0).detach().cpu().numpy()

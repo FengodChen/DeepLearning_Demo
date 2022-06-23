@@ -260,12 +260,10 @@ class VOC_Utils:
                 if encode_type == "yolo3_output":
                     x_center = x_center.sigmoid()
                     y_center = y_center.sigmoid()
-                    w = w
-                    h = h
-                    has_obj = has_obj.sigmoid()
-                    classes = classes.softmax(dim=0)
                     w = torch.exp(w) * anchor_w
                     h = torch.exp(h) * anchor_h
+                    has_obj = has_obj.sigmoid()
+                    classes = classes.softmax(dim=0)
 
                 if encode_type == "show":
                     x_center = (x_center / W + x_bias_index) * self.img_w
@@ -329,7 +327,7 @@ class VOC_Utils:
                 if ptr >= feature_map_level * anchor_num and ptr < (feature_map_level + 1) * anchor_num and iou > 0.5:
                     # It means that this block is ignored
                     anchor_index_start = (ptr % anchor_num) * anchor_dim
-                    output[anchor_index_start + 0, feature_map_index_h, feature_map_index_w] = -1
+                    output[anchor_index_start + 4, feature_map_index_h, feature_map_index_w] = -1
 
         return output
     
