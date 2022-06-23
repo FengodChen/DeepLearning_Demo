@@ -24,7 +24,7 @@ IMG_SIZE = (224, 224)
 VOC_KMEANS_PATH = f"datasets/voc_kmeans-cluster_num_{CLUSTER_NUM}.pkl"
 VOC_DATASET_PREPARE_PATH = "datasets/voc_dataset_prepare.pkl"
 LAMBDA_COORD = 10
-LAMBDA_NOOBJ = 1
+LAMBDA_NOOBJ = 0.5
 
 dataset_train = Voc_Dataset(root_dir="datasets", year="2007", resize=IMG_SIZE, image_set="train")
 dataloader_train = DataLoader(dataset_train, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
@@ -85,8 +85,8 @@ for (d, d_show) in zip(dataset_val, dataset_val_show):
 
     x = (x_show * 255).to(torch.uint8)
 
-    y_true_draw = voc_utils.draw_bbox(x, y_true, "label", 0.5)
-    y_pred_draw = voc_utils.draw_bbox(x, y, "yolo3_output", 0.5)
+    y_true_draw = voc_utils.draw_bbox(x, y_true, 0.5)
+    y_pred_draw = voc_utils.draw_bbox(x, y, 0.5)
 
     x = x.permute(1, 2, 0).detach().cpu().numpy()
     y_pred_draw = y_pred_draw.permute(1, 2, 0).detach().cpu().numpy()

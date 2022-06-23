@@ -10,59 +10,40 @@ class YOLO3_Loss(nn.Module):
         self.bce_loss = nn.BCELoss()
     
     def forward(self, y_pred, y_true):
-        loss_sum = 0.0
-        batch_size = y_pred[0].shape[0]
+        y_true = self.dataset_utils.tensor_embedding(y_true)
+        y_pred = self.dataset_utils.tensor_embedding(y_pred)
 
-        for batch_i in range(batch_size):
-            yolo3_pred = [y_pred[feature_i][batch_i] for feature_i in range(len(y_pred))]
-            dataset_true = [y_true[feature_i][batch_i] for feature_i in range(len(y_true))]
+        return self.get_feature_map_loss(y_true, y_pred)
 
-            for i in range(len(dataset_true)):
-                feature_map_true = dataset_true[i]
-                feature_map_pred = yolo3_pred[i]
-                loss_sum += self.get_feature_map_loss(feature_map_true, feature_map_pred)
-        
-        return loss_sum / (batch_i+1)
-    
     def get_feature_map_loss(self, feature_map_true, feature_map_pred):
-        anchor_num = self.dataset_utils.anchor_num
-        anchor_dim =  5 + self.dataset_utils.classes_num
+        # Shape = [(B H W), N, D]
+        pos_mask = feature_map_true[..., 4] > 0.9
+        ignore_mask = feature_map_true[..., 0] < -0.9
+        neg_mask = ~(pos_mask | ignore_mask)
 
-        loss = 0.0
-        for i in range(anchor_num):
-            start_ptr = i * anchor_dim
-            end_ptr = start_ptr + anchor_dim
-            split_feature_map_true = feature_map_true[start_ptr:end_ptr, ...]
-            split_feature_map_pred = feature_map_pred[start_ptr:end_ptr, ...]
-            loss += self.get_splited_feature_map_loss(split_feature_map_true, split_feature_map_pred)
-        return loss
+        # pos tensor
+        pos_tensor_true = feature_map_true[pos_mask]
+        pos_tensor_pred = feature_map_pred[pos_mask]
+        (x_p, y_p, h_p, w_p) = (pos_tensor_pred[:, i] for i in range(4))
+        (x_t, y_t, h_t, w_t) = (pos_tensor_true[:, i] for i in range(4))
+        obj_p = pos_tensor_pred[:, 4]
+        obj_t = pos_tensor_true[:, 4]
+        classes_p = pos_tensor_pred[:, 5:]
+        classes_t = pos_tensor_true[:, 5:]
+
+        pos_loss = torch.zeros(1)
+        pos_loss += self.lambda_coord * ((x_p - x_t)**2 + (y_p - y_t)**2).mean()
+        pos_loss += self.lambda_coord * ((h_p**0.5 - h_t**0.5)**2 + (w_p**0.5 - w_t**0.5)**2).mean()
+        pos_loss += self.bce_loss(obj_p, obj_t)
+        pos_loss += self.bce_loss(classes_p, classes_t)
+
+        # neg tensor
+        neg_tensor_true = feature_map_true[neg_mask]
+        neg_tensor_pred = feature_map_pred[neg_mask]
+        noobj_p = neg_tensor_pred[:, 4]
+        noobj_t = neg_tensor_true[:, 4]
+        neg_loss = self.lambda_noobj * self.bce_loss(noobj_p, noobj_t)
+
+        return pos_loss + neg_loss
     
-    def get_splited_feature_map_loss(self, feature_map_true, feature_map_pred):
-        loss = 0.0
-        (C, H, W) = feature_map_true.shape
-        has_obj_ptr = torch.where(feature_map_true[4, :, :] >= 0.9)
-        no_obj_ptr = torch.where(feature_map_true[4, :, :] <= 0.1)
-
-        if (len(has_obj_ptr[0]) > 0):
-            (x_p, y_p, h_p, w_p) = (feature_map_pred[i][has_obj_ptr] for i in range(4))
-            (x_t, y_t, h_t, w_t) = (feature_map_true[i][has_obj_ptr] for i in range(4))
-            obj_p = feature_map_pred[4][has_obj_ptr]
-            obj_t = feature_map_true[4][has_obj_ptr]
-            classes_p = feature_map_pred[5:].permute(1, 2, 0)[has_obj_ptr]
-            classes_t = feature_map_true[5:].permute(1, 2, 0)[has_obj_ptr]
-
-            d = len(has_obj_ptr[0])
-
-            loss += self.lambda_coord * ((x_p - x_t)**2 + (y_p - y_t)**2).sum() / d
-            loss += self.lambda_coord * ((h_p**0.5 - h_t**0.5)**2 + (w_p**0.5 - w_t**0.5)**2).sum() / d
-            loss += self.lambda_noobj * self.bce_loss(obj_p, obj_t)
-            loss += self.bce_loss(classes_p, classes_t)
-
-        if (len(no_obj_ptr[0]) > 0):
-            noobj_p = feature_map_pred[4][no_obj_ptr]
-            noobj_t = feature_map_true[4][no_obj_ptr]
-            loss += self.lambda_noobj * self.bce_loss(noobj_p, noobj_t)
-        
-        return loss
-
 

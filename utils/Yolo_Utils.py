@@ -3,7 +3,7 @@ from torch.utils.data.dataloader import DataLoader
 import torchvision
 import torch
 import random
-import math
+from einops import rearrange
 
 class Voc_Kmeans:
     def __init__(self, voc_dataset, load_path=None, cluster_num=None):
@@ -185,7 +185,7 @@ class VOC_Utils:
             (B, C, H, W) = feature_map.shape
             self.feature_map_size_list.append((C, H, W))
         
-    def get_max_iou_arg(self, bbox, anchor):
+    def get_sorted_iou_arg(self, bbox, anchor):
         bbox_area = bbox[2] * bbox[3]
         anchor_area = anchor[:, 0] * anchor[:, 1]
         intersection = torch.minimum(anchor, bbox[2:4])
@@ -193,7 +193,9 @@ class VOC_Utils:
 
         iou = intersection_area / (anchor_area + bbox_area - intersection_area)
         iou = iou.view(-1)
-        return torch.argmax(iou)
+        arg_sorted_iou = torch.argsort(iou, descending=True)
+        sorted_iou = iou[arg_sorted_iou]
+        return (arg_sorted_iou, sorted_iou)
 
     def decode_label(self, label):
         """
@@ -233,8 +235,8 @@ class VOC_Utils:
         
         return (img_size, bbox, classes)
     
-    def encode_to_tensor(self, yolo3_output, encode_type, normalize=False):
-        assert encode_type in ["label", "yolo3_output"]
+    def encode_to_tensor(self, yolo3_output, encode_type):
+        assert encode_type in ["label", "yolo3_output", "show"]
         (C, _, _) = yolo3_output[0].shape
         assert C % self.anchor_num == 0
         split_num = C // self.anchor_num
@@ -254,6 +256,7 @@ class VOC_Utils:
                 (w, h) = feature_map[start_ptr + 2:start_ptr + 4, :, :]
                 has_obj = feature_map[start_ptr + 4, :, :]
                 classes = feature_map[start_ptr + 5:start_ptr + 5 + self.voc_dataset_prepare.classes_num, :, :]
+
                 if encode_type == "yolo3_output":
                     x_center = x_center.sigmoid()
                     y_center = y_center.sigmoid()
@@ -261,22 +264,15 @@ class VOC_Utils:
                     h = h
                     has_obj = has_obj.sigmoid()
                     classes = classes.softmax(dim=0)
+                    w = torch.exp(w) * anchor_w
+                    h = torch.exp(h) * anchor_h
 
-                x_center = (x_center / W + x_bias_index) * self.img_w
-                y_center = (y_center / H + y_bias_index) * self.img_h
-                if encode_type == "label":
+                if encode_type == "show":
+                    x_center = (x_center / W + x_bias_index) * self.img_w
+                    y_center = (y_center / H + y_bias_index) * self.img_h
                     w = w * self.img_w
                     h = h * self.img_h
-                elif encode_type == "yolo3_output":
-                    w = torch.exp(w) * anchor_w * self.img_w
-                    h = torch.exp(h) * anchor_h * self.img_h
-                anchor_index += 1
 
-                if normalize:
-                    x_center = x_center / self.img_w
-                    y_center = y_center / self.img_h
-                    w = w / self.img_w
-                    h = h / self.img_h
 
                 feature_map[start_ptr + 0, :, :] = x_center
                 feature_map[start_ptr + 1, :, :] = y_center
@@ -284,6 +280,7 @@ class VOC_Utils:
                 feature_map[start_ptr + 3, :, :] = h
                 feature_map[start_ptr + 4, :, :] = has_obj
                 feature_map[start_ptr + 5:start_ptr + 5 + self.voc_dataset_prepare.classes_num, :, :] = classes
+                anchor_index += 1
 
         return yolo3_output
     
@@ -294,7 +291,7 @@ class VOC_Utils:
             for batch_feature_i in range(len(y)):
                 batch_feature_map = y[batch_feature_i]
                 l.append(batch_feature_map[batch_i])
-            ll = self.encode_to_tensor(l, "yolo3_output", normalize=True)
+            ll = self.encode_to_tensor(l, "yolo3_output")
             for i in range(len(l)):
                 l[i][:] = ll[i][:]
         return y
@@ -308,19 +305,18 @@ class VOC_Utils:
         output = torch.zeros((anchor_num * anchor_dim, feature_h, feature_w), dtype=torch.float)
 
         for (bbox, classes) in zip(bbox_list, classes_list):
-            max_iou_arg = self.get_max_iou_arg(bbox, self.anchor_list)
+            [bbox_x, bbox_y, bbox_h, bbox_w] = bbox
+            feature_map_index_h_float = bbox_y * feature_h
+            feature_map_index_w_float = bbox_x * feature_w
+            feature_map_index_h = int(feature_map_index_h_float)
+            feature_map_index_w = int(feature_map_index_w_float)
+
+            (sorted_iou_arg, sorted_iou) = self.get_sorted_iou_arg(bbox, self.anchor_list)
+            max_iou_arg = sorted_iou_arg[0]
+
             if max_iou_arg >= feature_map_level * anchor_num and max_iou_arg < (feature_map_level + 1) * anchor_num:
                 # It means that this bbox belongs to the feature map level
-                anchor = self.anchor_list[max_iou_arg]
-
                 # Get index
-                [bbox_x, bbox_y, bbox_h, bbox_w] = bbox
-
-                feature_map_index_h_float = bbox_y * feature_h
-                feature_map_index_w_float = bbox_x * feature_w
-
-                feature_map_index_h = int(feature_map_index_h_float)
-                feature_map_index_w = int(feature_map_index_w_float)
                 anchor_index_start = (max_iou_arg % anchor_num) * anchor_dim
 
                 output[anchor_index_start + 0, feature_map_index_h, feature_map_index_w] = feature_map_index_w_float - feature_map_index_w
@@ -329,6 +325,11 @@ class VOC_Utils:
                 output[anchor_index_start + 3, feature_map_index_h, feature_map_index_w] = bbox_h
                 output[anchor_index_start + 4, feature_map_index_h, feature_map_index_w] = 1
                 output[anchor_index_start + 5 : anchor_index_start + 5 + classes_num, feature_map_index_h, feature_map_index_w] = classes
+            for (ptr, iou) in zip(sorted_iou_arg[1:], sorted_iou[1:]):
+                if ptr >= feature_map_level * anchor_num and ptr < (feature_map_level + 1) * anchor_num and iou > 0.5:
+                    # It means that this block is ignored
+                    anchor_index_start = (ptr % anchor_num) * anchor_dim
+                    output[anchor_index_start + 0, feature_map_index_h, feature_map_index_w] = -1
 
         return output
     
@@ -340,13 +341,13 @@ class VOC_Utils:
         return y
 
     
-    def decode_tensor(self, yolo3_output, decode_type, has_obj_thread):
+    def decode_tensor(self, yolo3_output, has_obj_thread):
         assert self.anchor_num % len(yolo3_output) == 0
 
         bbox_list = []
         label_list = []
 
-        encoded_yolo3_output = self.encode_to_tensor(yolo3_output, encode_type=decode_type)
+        encoded_yolo3_output = self.encode_to_tensor(yolo3_output, encode_type="show")
         dim_per_anchor = 5 + self.classes_num
         for feature_map_i in range(len(encoded_yolo3_output)):
             feature_map = encoded_yolo3_output[feature_map_i]
@@ -378,16 +379,24 @@ class VOC_Utils:
         return (bbox_list, label_list)
 
     
-    def draw_bbox(self, img, yolo3_predict, decode_type, has_obj_thread):
+    def draw_bbox(self, img, yolo3_predict, has_obj_thread):
         yolo3_output = []
         for b in yolo3_predict:
             (B, _, _, _) = b.shape
             assert B == 1
             yolo3_output.append(b[0])
-        (bbox_list, label_list) = self.decode_tensor(yolo3_output, decode_type, has_obj_thread)
+        (bbox_list, label_list) = self.decode_tensor(yolo3_output, has_obj_thread)
         bbox_list = torch.tensor(bbox_list)
         drawed_img = torchvision.utils.draw_bounding_boxes(img, bbox_list, label_list, fill=True)
         return drawed_img
+    
+    def tensor_embedding(self, y):
+        """
+        y: list(feature map per feature level)
+        """
+        stack_list = [rearrange(y[i], "b (n d) h w -> (b h w) n d", n=self.anchor_num) for i in range(len(y))]
+        return torch.cat(stack_list)
+
 
 
 def collate_fn(batch):

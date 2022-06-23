@@ -74,7 +74,7 @@ class Voc_Dataset(Dataset):
         y = self.ds[index][1]
         if self.voc_util is not None:
             y = self.voc_util.label2tensor(y)
-            y = self.voc_util.encode_to_tensor(y, "label", normalize=True)
+            y = self.voc_util.encode_to_tensor(y, "label")
             return [x] + [i for i in y]
         else:
             return [x, y]
