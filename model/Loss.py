@@ -2,11 +2,13 @@ import torch
 from torch import nn
 
 class YOLO3_Loss(nn.Module):
-    def __init__(self, dataset_utils, lambda_coord, lambda_noobj) -> None:
+    def __init__(self, dataset_utils, lambda_coord, lambda_obj, lambda_noobj, lambda_cls) -> None:
         super().__init__()
         self.dataset_utils = dataset_utils
         self.lambda_coord = lambda_coord
+        self.lambda_obj = lambda_obj
         self.lambda_noobj = lambda_noobj
+        self.lambda_cls = lambda_cls
         self.bce_loss = nn.BCELoss()
     
     def forward(self, y_pred, y_true):
@@ -34,8 +36,8 @@ class YOLO3_Loss(nn.Module):
         pos_loss = 0
         pos_loss += self.lambda_coord * ((x_p - x_t)**2 + (y_p - y_t)**2).mean()
         pos_loss += self.lambda_coord * ((h_p**0.5 - h_t**0.5)**2 + (w_p**0.5 - w_t**0.5)**2).mean()
-        pos_loss += self.bce_loss(obj_p, obj_t)
-        pos_loss += self.bce_loss(classes_p, classes_t)
+        pos_loss += self.lambda_obj * self.bce_loss(obj_p, obj_t)
+        pos_loss += self.lambda_cls * self.bce_loss(classes_p, classes_t)
 
         # neg tensor
         neg_tensor_true = feature_map_true[neg_mask]

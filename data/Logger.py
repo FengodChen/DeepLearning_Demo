@@ -197,7 +197,7 @@ class Logger():
         data_np = np.array(data_array, dtype=float).T
         return (name_array, data_np)
     
-    def plot_log(self, log_type, plot_method, save_path=None, figsize=(12, 6)):
+    def plot_log(self, log_type, plot_method, save_path=None, figsize=(12, 6), loss_ylim=None, acc_ylim=None):
         assert log_type in ["eval", "train"]
         assert plot_method in ["show", "save"]
         name_array, data_np = self.get_log(log_type)
@@ -212,6 +212,8 @@ class Logger():
         plt.ylabel(name_loss)
         plt.title(f"{log_type} {name_loss}")
         plt.grid(True)
+        if loss_ylim is not None:
+            plt.ylim(loss_ylim)
 
         plt.subplot(122)
         plt.plot(data_epoch, data_acc)
@@ -219,6 +221,8 @@ class Logger():
         plt.ylabel(name_acc)
         plt.title(f"{log_type} {name_acc}")
         plt.grid(True)
+        if acc_ylim is not None:
+            plt.axis(acc_ylim)
 
         if (plot_method == "show"):
             plt.show()
