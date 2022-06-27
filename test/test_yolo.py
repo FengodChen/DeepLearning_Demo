@@ -24,7 +24,9 @@ IMG_SIZE = (224, 224)
 VOC_KMEANS_PATH = f"datasets/voc_kmeans-cluster_num_{CLUSTER_NUM}.pkl"
 VOC_DATASET_PREPARE_PATH = "datasets/voc_dataset_prepare.pkl"
 LAMBDA_COORD = 10
-LAMBDA_NOOBJ = 0.5
+LAMBDA_OBJ = 5
+LAMBDA_NOOBJ = 5
+LAMBDA_CLS = 1
 
 dataset_train = Voc_Dataset(root_dir="datasets", year="2007", resize=IMG_SIZE, image_set="train")
 dataloader_train = DataLoader(dataset_train, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
@@ -65,7 +67,7 @@ dataset_val_show.set_voc_util(voc_utils)
 net.set_end_func(voc_utils.yolo3_encode_to_tensor)
 
 logger = Logger("save/yolo3", net, load_newest=True)
-loss = YOLO3_Loss(voc_utils, lambda_coord=LAMBDA_COORD, lambda_noobj=LAMBDA_NOOBJ)
+loss = YOLO3_Loss(voc_utils, lambda_coord=LAMBDA_COORD, lambda_obj=LAMBDA_OBJ, lambda_noobj=LAMBDA_NOOBJ, lambda_cls=LAMBDA_CLS)
 opt = torch.optim.Adam(net.parameters(), lr=3e-4)
 
 trainer = YOLO3_Trainer(net, loss, opt, dev, logger, 10)
@@ -73,6 +75,8 @@ trainer.train(dataloader_train, dataloader_val, void_compare_func, 10, 500)
 
 logger.plot_log("train", "show")
 logger.plot_log("eval", "show")
+
+net.eval()
 
 for (d, d_show) in zip(dataset_val, dataset_val_show):
     x = d[0]
